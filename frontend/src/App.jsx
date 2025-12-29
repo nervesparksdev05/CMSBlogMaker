@@ -22,7 +22,7 @@ function App() {
       {/* <CreateBlogOutline/> */}
       {/* <CreateBlogImageUpload/> */}
       {/* <ReviewInfoPage/> */}
-      <GeneratedBlogPage/>
+      {/* <GeneratedBlogPage/> */}
       {/* <SavedBlogPage/> */}
       {/* <NanoBananaPage/> */}
     </>
