@@ -253,4 +253,72 @@ GEMINI_API_KEY=your_key
 GEMINI_TEXT_MODEL=gemini-2.5-flash
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
+📌 Root
+main.py — Application Entrypoint
 
+Creates the FastAPI instance
+
+Adds CORS middleware
+
+Mounts uploads/ folder at /uploads
+
+Includes routers:
+
+/auth
+
+/ai
+
+/blogs
+
+/admin
+
+Runs init_indexes() at startup for MongoDB indexes
+
+requirements.txt
+
+Pinned dependencies for stable installs across machines.
+
+.env.example
+
+Template for local environment variables.
+
+.env (local only)
+
+Contains secrets like:
+
+MongoDB URI
+
+JWT secret
+
+Gemini API key
+
+⚠️ Do not commit this file to GitHub.
+
+uploads/
+
+Stores:
+
+Generated cover images
+
+Uploaded cover images
+
+Served via:
+
+GET /uploads/<filename>
+
+🧠 app/ (Core)
+app/config.py
+
+Loads env config using pydantic-settings and exposes settings:
+
+MONGODB_URI, MONGODB_DB
+
+JWT_SECRET, JWT_EXPIRES_MINUTES
+
+ADMIN_EMAIL
+
+GEMINI_*
+
+CORS_ORIGINS, PUBLIC_BASE_URL
+
+app/db.py
