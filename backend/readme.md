@@ -1,122 +1,253 @@
-Backend (FastAPI + MongoDB + Gemini + Image Generation)
+# 🚀 CMS Blog Backend (FastAPI + MongoDB + Gemini + Image Generation)
 
-This backend powers the CMS blog generator flow:
+Production-ready backend for a multi-step **AI Blog Generator CMS**.
 
-Auth: Signup/Login (JWT)
+It supports:
+- ✅ **JWT Authentication** (Signup/Login)
+- ✅ **Role-based access** (Admin vs User)
+- ✅ **AI generation flow** (always **5 options** per step)
+- ✅ **Cover image generation** (single image) + upload
+- ✅ **Blog publish workflow** (Saved → Pending → Published / Rejected)
+- ✅ Stores only **Users + Final Blogs** in MongoDB
 
-Role-based access: Admin vs User
+---
 
-AI steps (Gemini):
+## ✨ Features
 
-Generate 5 topic ideas
+### 🔐 Authentication
+- Signup/Login using JWT
+- Admin role is assigned automatically based on `ADMIN_EMAIL`
 
-Generate 5 titles
+### 🧠 AI Pipeline (Gemini)
+Each step generates **exactly 5 options**, user selects one or manually types:
+1. **Topic Ideas** (5)
+2. **Titles** (5)
+3. **Intro Paragraphs** (5)
+4. **Outline Variants** (5)
+5. **Image Prompts** (5)
+6. **Final Blog Generation** (1 final blog)
 
-Generate 5 intros
+### 🖼️ Cover Image
+- Generate **1** image from selected prompt + aspect ratio + quality + color  
+  **OR**
+- Upload from device
 
-Generate 5 outline variants
+### 📝 Preview (Side-by-side)
+On preview:
+- **HTML (left)**
+- **Markdown (right)**
 
-Generate 5 image prompts
+### ✅ Publish Workflow
+- Blog saved as `saved`
+- User requests publish → `pending`
+- Admin approves → `published`
+- Admin rejects → `rejected` with feedback
 
-Generate final blog (Markdown + HTML)
+---
 
-Image generation:
+## 🧰 Tech Stack
 
-Generate 1 cover image (Gemini Image / “Nano Banana style” integration)
+| Layer | Tech |
+|------|------|
+| API | FastAPI |
+| DB | MongoDB (motor) |
+| Auth | JWT (`python-jose`) |
+| Password Hashing | Argon2 (`argon2-cffi`) |
+| AI | Gemini (`google-genai`) |
+| Markdown to HTML | `markdown` |
+| Server | Uvicorn |
 
-Or upload from device
+---
 
-Blog workflow:
+## 📁 Project Structure
 
-Save final blog to MongoDB (saved)
-
-Request publish (pending)
-
-Admin approves → published OR rejects → rejected with feedback
-
-MongoDB stores only:
-
-users
-
-blogs (final blog + metadata)
-
-Tech Stack
-
-FastAPI
-
-MongoDB via motor
-
-JWT via python-jose
-
-Password hashing: Argon2 (argon2-cffi) (supports long passwords)
-
-Gemini (text + image) via google-genai
-
-Markdown → HTML via markdown
-
-Folder Structure
+```text
 backend/
   main.py
   requirements.txt
-  .env                # create locally (not committed)
+  README.md
   .env.example
-  uploads/            # stored generated/uploaded images
+  .env                 # local only (DO NOT COMMIT)
+  uploads/             # generated/uploaded images
   app/
-    config.py         # env settings
-    db.py             # mongo connection + collections + indexes
-    deps.py           # auth dependencies (current user + admin guard)
-    schemas.py        # pydantic schemas
-    security.py       # password hashing + jwt helpers
+    __init__.py
+    config.py
+    db.py
+    deps.py
+    schemas.py
+    security.py
     routers/
-      auth.py         # signup/login
-      ai.py           # all ai endpoints
-      blogs.py        # save/list/get/request-publish + dashboard stats + upload image
-      admin.py        # admin approvals/rejections
+      __init__.py
+      auth.py
+      ai.py
+      blogs.py
+      admin.py
     services/
-      gemini_service.py     # all gemini text generation
-      image_service.py      # image generation + local save to uploads
-      markdown_service.py   # markdown->html
+      __init__.py
+      gemini_service.py
+      image_service.py
+      markdown_service.py
+🗂️ File-by-File Explanation
+Root Files
+main.py
+Creates FastAPI app
 
-Requirements
+Adds CORS middleware
+
+Mounts uploads/ at /uploads
+
+Includes all routers (/auth, /ai, /blogs, /admin)
+
+Runs init_indexes() on startup
+
+requirements.txt
+Pinned dependencies for consistent setup
+
+.env.example
+Template env file to copy into .env
+
+uploads/
+Stores generated and uploaded images
+
+Served as: GET /uploads/<filename>
+
+app/ Core
+app/config.py
+Reads environment variables using pydantic-settings
+
+Exposes settings used across the app
+
+app/db.py
+MongoDB connection using motor
+
+Exposes:
+
+users_col
+
+blogs_col
+
+Creates indexes via init_indexes()
+
+app/deps.py
+Auth dependencies:
+
+Extract & validate JWT from Authorization header
+
+Fetch current user
+
+Admin-only guard
+
+app/schemas.py
+All request/response models:
+
+Auth schemas
+
+AI inputs
+
+Blog meta + final blog schemas
+
+app/security.py
+Argon2 password hashing
+
+JWT token creation + decoding
+
+app/routers/
+routers/auth.py
+Endpoints:
+
+POST /auth/signup
+
+POST /auth/login
+
+Assigns admin role if email matches ADMIN_EMAIL.
+
+routers/ai.py
+AI endpoints:
+
+POST /ai/ideas
+
+POST /ai/titles
+
+POST /ai/intros
+
+POST /ai/outlines
+
+POST /ai/image-prompts
+
+POST /ai/image-generate
+
+POST /ai/blog-generate
+
+routers/blogs.py
+Blog endpoints:
+
+Save final blog
+
+List saved blogs (table)
+
+Request publish
+
+Dashboard counts
+
+Upload image
+
+routers/admin.py
+Admin moderation endpoints:
+
+List blogs by status
+
+Approve
+
+Reject with feedback
+
+app/services/
+services/gemini_service.py
+All Gemini text generation functions:
+
+topic ideas, titles, intros, outlines, prompts, final blog
+
+services/image_service.py
+Cover image generation + save into uploads/
+
+Returns public image URL
+
+services/markdown_service.py
+Converts markdown into HTML for preview
+
+✅ Requirements
 Python
+Use:
 
-Use Python 3.11 (recommended) or 3.10.
+✅ Python 3.11 (recommended)
+
+✅ Python 3.10 also works
 
 MongoDB
+Local MongoDB or MongoDB Atlas
 
-You need MongoDB running locally OR Atlas.
+Default local URI: mongodb://localhost:27017
 
-Local default: mongodb://localhost:27017
-
-Database name: cms_blog
-
-Setup
-1) Create virtual environment
-
-From backend/:
-
-PowerShell
-
+⚙️ Setup
+1) Create Virtual Environment
+powershell
+Copy code
+cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -U pip
-
-2) Install dependencies
+2) Install Dependencies
+powershell
+Copy code
 pip install -r requirements.txt
-
 3) Create .env
-
-Copy example:
-
+powershell
+Copy code
 Copy-Item .env.example .env
-
-
-Edit .env and set values.
-
-Environment Variables
-
+🔑 Environment Variables
 Example .env:
 
+env
+Copy code
 APP_NAME=CMS Blog API
 ENV=dev
 
@@ -134,322 +265,45 @@ PUBLIC_BASE_URL=http://127.0.0.1:8000
 GEMINI_API_KEY=your_key
 GEMINI_TEXT_MODEL=gemini-2.5-flash
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+👑 Admin Role Rule
+If email == ADMIN_EMAIL, the user becomes admin.
 
-Admin role rule
-
-If a user signs up with email equal to ADMIN_EMAIL, they get role admin. Otherwise role is user.
-
-Run the Server
-
-From backend/ (venv activated):
-
+▶️ Run Server
+powershell
+Copy code
 python -m uvicorn main:app --reload --port 8000
+API: http://127.0.0.1:8000
 
+Swagger: http://127.0.0.1:8000/docs
 
-Server URL:
-
-http://127.0.0.1:8000
-
-Docs:
-
-Swagger UI: http://127.0.0.1:8000/docs
-
-MongoDB Setup
+🗄️ MongoDB Setup
 Option A: Local MongoDB
+Start (Windows Service):
 
-Start MongoDB (one of these ways):
-
-If running as Windows service:
-
+powershell
+Copy code
 Get-Service MongoDB
 Start-Service MongoDB
+Verify:
 
-
-Verify port open:
-
+powershell
+Copy code
 Test-NetConnection localhost -Port 27017
-
 Option B: MongoDB Atlas
+Update .env:
 
-Set .env:
-
+env
+Copy code
 MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.../cms_blog?retryWrites=true&w=majority
 MONGODB_DB=cms_blog
+🔐 Authentication (JWT)
+Protected endpoints require:
 
-Authentication (JWT)
-
-All protected endpoints require header:
-
+text
+Copy code
 Authorization: Bearer <token>
-
-
-Token is returned from:
+Token is returned by:
 
 POST /auth/signup
 
 POST /auth/login
-
-API Overview
-Health
-
-GET /health
-
-Auth
-
-POST /auth/signup
-
-POST /auth/login
-
-AI (always returns 5 options where applicable)
-
-POST /ai/ideas
-
-POST /ai/titles
-
-POST /ai/intros
-
-POST /ai/outlines (5 variants; each contains an outline array)
-
-POST /ai/image-prompts
-
-POST /ai/image-generate (returns 1 image url)
-
-POST /ai/blog-generate (returns final markdown + html)
-
-Blogs
-
-POST /blogs (save final blog to MongoDB)
-
-GET /blogs/mine (saved blogs list)
-
-GET /blogs/{id} (single blog with final blog + meta)
-
-POST /blogs/{id}/request-publish (sets status pending)
-
-GET /blogs/dashboard/stats (counts for dashboard cards)
-
-POST /blogs/upload/image (upload local image file)
-
-Admin (admin token only)
-
-GET /admin/blogs?status=pending|saved|published|rejected
-
-POST /admin/blogs/{id}/approve
-
-POST /admin/blogs/{id}/reject?feedback=...
-
-Postman Testing (Direct, no environment variables)
-
-Base URL: http://127.0.0.1:8000
-
-1) Signup (User)
-
-POST /auth/signup
-
-{
-  "name": "Test User",
-  "email": "user1@gmail.com",
-  "password": "very-very-long-password-is-ok-now"
-}
-
-
-Copy access_token.
-
-2) Dashboard Stats
-
-GET /blogs/dashboard/stats
-Header:
-Authorization: Bearer <USER_TOKEN>
-
-3) AI Ideas (5)
-
-POST /ai/ideas
-
-{
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "tone": "Informative",
-  "creativity": "High"
-}
-
-
-Pick one from options[].
-
-4) AI Titles (5)
-
-POST /ai/titles
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "selected_idea": "PASTE_ONE_IDEA"
-}
-
-
-Pick one title.
-
-5) AI Intros (5)
-
-POST /ai/intros
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "selected_idea": "PASTE_SELECTED_IDEA",
-  "title": "PASTE_SELECTED_TITLE"
-}
-
-
-Pick one intro (markdown).
-
-6) AI Outlines (5 variants)
-
-POST /ai/outlines
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "selected_idea": "PASTE_SELECTED_IDEA",
-  "title": "PASTE_SELECTED_TITLE",
-  "intro_md": "PASTE_SELECTED_INTRO_MD"
-}
-
-
-Pick one outline array.
-
-7) AI Image Prompts (5)
-
-POST /ai/image-prompts
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "selected_idea": "PASTE_SELECTED_IDEA",
-  "title": "PASTE_SELECTED_TITLE"
-}
-
-
-Pick one image prompt.
-
-8) Generate Image (1)
-
-POST /ai/image-generate
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "selected_idea": "PASTE_SELECTED_IDEA",
-  "title": "PASTE_SELECTED_TITLE",
-  "prompt": "PASTE_SELECTED_IMAGE_PROMPT",
-  "aspect_ratio": "4:3",
-  "quality": "high",
-  "primary_color": "#4443E4"
-}
-
-
-Copy image_url.
-
-9) Generate Final Blog (preview HTML + Markdown)
-
-POST /ai/blog-generate
-
-{
-  "tone": "Informative",
-  "creativity": "High",
-  "focus_or_niche": "AI for healthcare beginners",
-  "targeted_keyword": "AI in healthcare",
-  "targeted_audience": "Students",
-  "reference_links": "https://www.who.int, https://www.nih.gov",
-  "selected_idea": "PASTE_SELECTED_IDEA",
-  "title": "PASTE_SELECTED_TITLE",
-  "intro_md": "PASTE_SELECTED_INTRO_MD",
-  "outline": ["PASTE", "OUTLINE", "ARRAY"],
-  "cover_image_url": "PASTE_IMAGE_URL"
-}
-
-
-Response contains:
-
-markdown
-
-html
-
-10) Save Blog to DB
-
-POST /blogs
-Header:
-Authorization: Bearer <USER_TOKEN>
-
-Body:
-
-{
-  "meta": {
-    "language": "English",
-    "tone": "Informative",
-    "creativity": "High",
-    "focus_or_niche": "AI for healthcare beginners",
-    "targeted_keyword": "AI in healthcare",
-    "targeted_audience": "Students",
-    "reference_links": "https://www.who.int, https://www.nih.gov",
-    "selected_idea": "PASTE_SELECTED_IDEA",
-    "title": "PASTE_SELECTED_TITLE",
-    "intro_md": "PASTE_SELECTED_INTRO_MD",
-    "outline": ["PASTE", "OUTLINE", "ARRAY"],
-    "image_prompt": "PASTE_SELECTED_IMAGE_PROMPT",
-    "cover_image_url": "PASTE_IMAGE_URL"
-  },
-  "final_blog": {
-    "render": {
-      "title": "PASTE_SELECTED_TITLE",
-      "cover_image_url": "PASTE_IMAGE_URL",
-      "intro_md": "PASTE_SELECTED_INTRO_MD",
-      "sections": [],
-      "conclusion_md": "",
-      "references": []
-    },
-    "markdown": "PASTE_MARKDOWN",
-    "html": "PASTE_HTML"
-  }
-}
-
-
-Copy returned blog_id.
-
-11) Request Publish
-
-POST /blogs/<BLOG_ID>/request-publish
-Header:
-Authorization: Bearer <USER_TOKEN>
-
-12) Admin Approve/Reject
-
-Signup/login with admin email (ADMIN_EMAIL).
-
-GET /admin/blogs?status=pending
-
-POST /admin/blogs/<BLOG_ID>/approve
-
-POST /admin/blogs/<BLOG_ID>/reject?feedback=...
-
-Admin requests require:
-Authorization: Bearer <ADMIN_TOKEN>
