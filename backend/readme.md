@@ -97,6 +97,7 @@ backend/
         │── image_service.py
         └── markdown_service.py
 
+
 🗂️ File Guide (What each file does)
 File	Purpose
 main.py	Creates app, mounts /uploads, adds CORS, registers routers, runs DB index init
