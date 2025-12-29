@@ -1,9 +1,9 @@
 from fastapi import Header, HTTPException, Depends
 from bson import ObjectId
 
-from app.config import settings
-from app.db import users_col
-from app.security import decode_token
+from core.config import settings
+from app.models.db import users_col
+from core.verify import decode_token
 
 def oid(s: str) -> ObjectId:
     try:

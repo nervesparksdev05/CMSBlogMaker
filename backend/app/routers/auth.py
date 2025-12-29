@@ -1,11 +1,16 @@
 from datetime import datetime
-from fastapi import APIRouter, HTTPException
-from app.config import settings
-from app.db import users_col
-from app.schemas import SignupIn, LoginIn, TokenOut
-from app.security import hash_password, verify_password, create_access_token
 
-router = APIRouter()
+from fastapi import APIRouter, HTTPException
+from pymongo.errors import DuplicateKeyError
+
+from core.config import settings
+from app.models.db import users_col
+from app.models.schemas import SignupIn, LoginIn, TokenOut
+
+from core.verify import hash_password, verify_password, create_access_token
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
 
 @router.post("/signup", response_model=TokenOut)
 async def signup(payload: SignupIn):
@@ -23,22 +28,32 @@ async def signup(payload: SignupIn):
 
     try:
         res = await users_col.insert_one(doc)
-    except Exception:
+    except DuplicateKeyError:
         raise HTTPException(status_code=400, detail="Email already exists")
 
     user_id = str(res.inserted_id)
-    token = create_access_token(user_id, role, settings.JWT_SECRET, settings.JWT_EXPIRES_MINUTES)
+    token = create_access_token(
+        user_id=user_id,
+        role=role,
+        secret=settings.JWT_SECRET,
+        expires_minutes=settings.JWT_EXPIRES_MINUTES,
+    )
 
-    await users_col.update_one({"_id": res.inserted_id}, {"$set": {"last_login_at": datetime.utcnow()}})
+    await users_col.update_one(
+        {"_id": res.inserted_id},
+        {"$set": {"last_login_at": datetime.utcnow()}},
+    )
 
     return {
         "access_token": token,
         "user": {"id": user_id, "name": doc["name"], "email": doc["email"], "role": role},
     }
 
+
 @router.post("/login", response_model=TokenOut)
 async def login(payload: LoginIn):
     email = payload.email.lower().strip()
+
     user = await users_col.find_one({"email": email})
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email/password")
@@ -48,9 +63,18 @@ async def login(payload: LoginIn):
 
     user_id = str(user["_id"])
     role = user.get("role", "user")
-    token = create_access_token(user_id, role, settings.JWT_SECRET, settings.JWT_EXPIRES_MINUTES)
 
-    await users_col.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": datetime.utcnow()}})
+    token = create_access_token(
+        user_id=user_id,
+        role=role,
+        secret=settings.JWT_SECRET,
+        expires_minutes=settings.JWT_EXPIRES_MINUTES,
+    )
+
+    await users_col.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"last_login_at": datetime.utcnow()}},
+    )
 
     return {
         "access_token": token,

@@ -1,15 +1,19 @@
 import os
 import uuid
 from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
-from app.db import blogs_col
-from app.deps import get_current_user, oid
-from app.schemas import BlogCreateIn, BlogOut, BlogListItem
-from app.config import settings
+
+from app.models.db import blogs_col
+from core.deps import get_current_user, oid
+from app.models.schemas import BlogCreateIn, BlogOut
+from core.config import settings
 
 router = APIRouter()
 
-@router.post("", response_model=dict)
+
+# ---------------- CREATE ----------------
+@router.post("/blog", response_model=dict)  # POST /blogs
 async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
     now = datetime.utcnow()
     doc = {
@@ -32,8 +36,10 @@ async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
     res = await blogs_col.insert_one(doc)
     return {"blog_id": str(res.inserted_id), "status": "saved"}
 
-@router.get("/mine", response_model=dict)
-async def my_blogs(
+
+# ---------------- LIST (MY BLOGS) ----------------
+@router.get("/blog", response_model=dict)  # GET /blogs?page=1&limit=10
+async def list_my_blogs(
     user=Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=5, le=50),
@@ -45,52 +51,23 @@ async def my_blogs(
     cursor = blogs_col.find(q).sort("created_at", -1).skip(skip).limit(limit)
     items = []
     async for b in cursor:
-        items.append({
-            "id": str(b["_id"]),
-            "title": (b.get("meta") or {}).get("title", "") or (b.get("final_blog") or {}).get("render", {}).get("title",""),
-            "created_by": b.get("owner_name", ""),
-            "created_at": b.get("created_at"),
-            "status": b.get("status", "saved"),
-        })
+        items.append(
+            {
+                "id": str(b["_id"]),
+                "title": (b.get("meta") or {}).get("title", "")
+                or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "created_by": b.get("owner_name", ""),
+                "created_at": b.get("created_at"),
+                "status": b.get("status", "saved"),
+            }
+        )
 
     return {"items": items, "page": page, "limit": limit, "total": total}
 
-@router.get("/{blog_id}", response_model=BlogOut)
-async def get_blog(blog_id: str, user=Depends(get_current_user)):
-    b = await blogs_col.find_one({"_id": oid(blog_id)})
-    if not b:
-        raise HTTPException(status_code=404, detail="Blog not found")
-    if b["owner_id"] != user["id"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not allowed")
 
-    b["id"] = str(b["_id"])
-    b.pop("_id", None)
-    return b
-
-@router.post("/{blog_id}/request-publish", response_model=dict)
-async def request_publish(blog_id: str, user=Depends(get_current_user)):
-    b = await blogs_col.find_one({"_id": oid(blog_id)})
-    if not b:
-        raise HTTPException(status_code=404, detail="Blog not found")
-    if b["owner_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Not allowed")
-
-    if b.get("status") == "published":
-        raise HTTPException(status_code=400, detail="Already published")
-
-    await blogs_col.update_one(
-        {"_id": oid(blog_id)},
-        {"$set": {
-            "status": "pending",
-            "updated_at": datetime.utcnow(),
-            "admin_review.requested_at": datetime.utcnow(),
-            "admin_review.feedback": "",
-        }}
-    )
-    return {"ok": True, "status": "pending"}
-
-@router.get("/dashboard/stats", response_model=dict)
-async def dashboard_stats(user=Depends(get_current_user)):
+# ---------------- STATS ----------------
+@router.get("/blogs/stats", response_model=dict)  # GET /blogs/stats
+async def blog_stats(user=Depends(get_current_user)):
     q_owner = {"owner_id": user["id"]}
 
     total = await blogs_col.count_documents(q_owner)
@@ -107,13 +84,57 @@ async def dashboard_stats(user=Depends(get_current_user)):
         "generated_images": images,
     }
 
-@router.post("/upload/image", response_model=dict)
+
+# ---------------- UPLOADS ----------------
+@router.post("/blogs/uploads/images", response_model=dict)  # POST /blogs/uploads/images
 async def upload_image(file: UploadFile = File(...), user=Depends(get_current_user)):
     os.makedirs("uploads", exist_ok=True)
     ext = os.path.splitext(file.filename or "")[-1].lower() or ".png"
     filename = f"{uuid.uuid4().hex}{ext}"
     path = os.path.join("uploads", filename)
+
     data = await file.read()
     with open(path, "wb") as f:
         f.write(data)
+
     return {"image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}"}
+
+
+# ---------------- BLOG BY ID ----------------
+@router.get("/blogs/{blog_id}", response_model=BlogOut)  # GET /blogs/{blog_id}
+async def get_blog(blog_id: str, user=Depends(get_current_user)):
+    b = await blogs_col.find_one({"_id": oid(blog_id)})
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b["owner_id"] != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    b["id"] = str(b["_id"])
+    b.pop("_id", None)
+    return b
+
+
+# ---------------- PUBLISH REQUEST ----------------
+@router.post("/blogs/{blog_id}/publish-request", response_model=dict)  # POST /blogs/{blog_id}/publish-request
+async def request_publish(blog_id: str, user=Depends(get_current_user)):
+    b = await blogs_col.find_one({"_id": oid(blog_id)})
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b["owner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    if b.get("status") == "published":
+        raise HTTPException(status_code=400, detail="Already published")
+
+    await blogs_col.update_one(
+        {"_id": oid(blog_id)},
+        {
+            "$set": {
+                "status": "pending",
+                "updated_at": datetime.utcnow(),
+                "admin_review.requested_at": datetime.utcnow(),
+                "admin_review.feedback": "",
+            }
+        },
+    )
+    return {"ok": True, "status": "pending"}

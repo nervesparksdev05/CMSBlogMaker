@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
-from app.db import blogs_col
-from app.deps import require_admin, oid
+from app.models.db import blogs_col
+from core.deps import require_admin, oid
 
 router = APIRouter()
 

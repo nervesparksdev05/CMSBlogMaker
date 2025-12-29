@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.schemas import (
+from app.models.schemas import (
     TopicIdeasIn, TitlesIn, ImagePromptsIn, IntrosIn, OutlinesIn, ImageGenerateIn, ImageOut,
     GenerateBlogIn, OptionsOut, FinalBlog, BlogRender, BlogSection
 )

@@ -1,30 +1,32 @@
 import os
 import uuid
+from textwrap import dedent
 from PIL import Image
 from google import genai
 from google.genai import types
 
-from app.config import settings
+from core.config import settings
 
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 async def generate_cover_image(payload: dict) -> dict:
     os.makedirs("uploads", exist_ok=True)
 
-    final_prompt = (
-        "Create a high-quality blog cover image.\n"
-        "Language context: English blog.\n"
-        f"Tone: {payload['tone']}\n"
-        f"Creativity: {payload['creativity']}\n"
-        f"Focus/Niche: {payload['focus_or_niche']}\n"
-        f"Keyword: {payload.get('targeted_keyword','')}\n"
-        f"Title: {payload.get('title','')}\n\n"
-        f"Aspect ratio: {payload['aspect_ratio']}\n"
-        f"Quality: {payload['quality']}\n"
-        f"Primary color: {payload['primary_color']}\n"
-        f"User prompt: {payload['prompt']}\n"
-        "No watermark, no logos, no text.\n"
-    )
+    final_prompt = dedent(f"""
+    Create a high-quality blog cover image.
+    Language context: English blog.
+    Tone: {payload['tone']}
+    Creativity: {payload['creativity']}
+    Focus/Niche: {payload['focus_or_niche']}
+    Keyword: {payload.get('targeted_keyword','')}
+    Title: {payload.get('title','')}
+
+    Aspect ratio: {payload['aspect_ratio']}
+    Quality: {payload['quality']}
+    Primary color: {payload['primary_color']}
+    User prompt: {payload['prompt']}
+    No watermark, no logos, no text.
+    """).lstrip("\n")
 
     cfg = types.GenerateContentConfig(
         response_modalities=["Image"],
