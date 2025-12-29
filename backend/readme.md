@@ -1,7 +1,6 @@
 # 🚀 CMS Blog Backend
 
 > A production-ready FastAPI backend for an AI-powered Blog Generator CMS with multi-step content creation workflow.
----
 
 ## ✨ Features
 
@@ -134,11 +133,11 @@ PUBLIC_BASE_URL=http://127.0.0.1:8000
 
 # Gemini AI
 GEMINI_API_KEY=your_gemini_api_key_here
-GEMINI_TEXT_MODEL=gemini-2.5-flash
-GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+GEMINI_TEXT_MODEL=gemini-2.0-flash-exp
+GEMINI_IMAGE_MODEL=imagen-3.0-generate-001
 ```
 
-> 💡 **Tip:** Copy `.env.example` and customize it for your environment.
+> 💡 **Tip:** Make sure to get your Gemini API key from [Google AI Studio](https://ai.google.dev/).
 
 ### 5️⃣ Run the Server
 
@@ -159,17 +158,24 @@ The API will be available at:
 backend/
 ├── 📄 main.py                    # Application entrypoint
 ├── 📄 requirements.txt           # Python dependencies
-├── 📄 .env.example               # Environment template
-├── 📄 .env                       # Local config (DO NOT COMMIT)
+├── 📄 .env                       # Environment config (DO NOT COMMIT)
+├── 📄 .gitignore                 # Git ignore rules
 ├── 📂 uploads/                   # Generated/uploaded images
+├── 📂 venv/                      # Virtual environment
+│
+├── 📂 core/
+│   ├── 📄 __init__.py
+│   ├── 📄 config.py              # Settings & environment config
+│   ├── 📄 deps.py                # Auth dependencies
+│   └── 📄 verify.py              # Token verification utilities
 │
 ├── 📂 app/
 │   ├── 📄 __init__.py
-│   ├── 📄 config.py              # Settings & environment config
-│   ├── 📄 db.py                  # MongoDB connection
-│   ├── 📄 deps.py                # Auth dependencies
-│   ├── 📄 schemas.py             # Pydantic models
-│   ├── 📄 security.py            # JWT & password utilities
+│   │
+│   ├── 📂 models/
+│   │   ├── 📄 __init__.py
+│   │   ├── 📄 db.py              # MongoDB connection & collections
+│   │   └── 📄 schemas.py         # Pydantic models
 │   │
 │   ├── 📂 routers/
 │   │   ├── 📄 __init__.py
@@ -193,39 +199,39 @@ backend/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/auth/signup` | Register new user |
-| `POST` | `/auth/login` | Login and get JWT token |
+| `POST` | `/auth/auth/signup` | Register new user |
+| `POST` | `/auth/auth/login` | Login and get JWT token |
 
 ### 🤖 AI Generation (`/ai`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/ai/ideas` | Generate 5 topic ideas |
-| `POST` | `/ai/titles` | Generate 5 titles |
-| `POST` | `/ai/intros` | Generate 5 intros |
-| `POST` | `/ai/outlines` | Generate 5 outlines |
+| `POST` | `/ai/titles` | Generate 5 titles for selected topic |
+| `POST` | `/ai/intros` | Generate 5 intro paragraphs |
+| `POST` | `/ai/outlines` | Generate 5 blog outlines |
 | `POST` | `/ai/image-prompts` | Generate 5 image prompts |
-| `POST` | `/ai/image-generate` | Generate cover image |
-| `POST` | `/ai/blog-generate` | Generate final blog (MD + HTML) |
+| `POST` | `/ai/image-generate` | Generate single cover image |
+| `POST` | `/ai/blog-generate` | Generate final blog (Markdown + HTML) |
 
 ### 📝 Blog Management (`/blogs`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/blogs` | Save final blog |
-| `GET` | `/blogs/mine` | List user's blogs |
-| `GET` | `/blogs/{id}` | Get single blog |
-| `POST` | `/blogs/{id}/request-publish` | Submit for approval |
-| `GET` | `/blogs/dashboard/stats` | Dashboard statistics |
-| `POST` | `/blogs/upload/image` | Upload cover image |
+| `POST` | `/blog` | Create and save final blog |
+| `GET` | `/blog` | List current user's blogs |
+| `GET` | `/blogs/stats` | Get blog statistics for dashboard |
+| `POST` | `/blogs/uploads/images` | Upload custom cover image |
+| `GET` | `/blogs/{blog_id}` | Get single blog by ID |
+| `POST` | `/blogs/{blog_id}/publish-request` | Request admin approval for publishing |
 
 ### 👑 Admin Panel (`/admin`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/admin/blogs` | List all blogs (filterable) |
-| `POST` | `/admin/blogs/{id}/approve` | Approve blog |
-| `POST` | `/admin/blogs/{id}/reject` | Reject with feedback |
+| `GET` | `/admin/blogs` | List all blogs with optional status filter |
+| `POST` | `/admin/blogs/{blog_id}/approve` | Approve blog for publishing |
+| `POST` | `/admin/blogs/{blog_id}/reject` | Reject blog with feedback message |
 
 ---
 
@@ -326,7 +332,4 @@ Ensure all required environment variables are set in production:
 - **Reverse Proxy**: Nginx or Caddy
 
 ---
-
-
-.
 
