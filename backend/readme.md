@@ -292,7 +292,6 @@ JWT secret
 
 Gemini API key
 
-⚠️ Do not commit this file to GitHub.
 
 uploads/
 
@@ -306,19 +305,3 @@ Served via:
 
 GET /uploads/<filename>
 
-🧠 app/ (Core)
-app/config.py
-
-Loads env config using pydantic-settings and exposes settings:
-
-MONGODB_URI, MONGODB_DB
-
-JWT_SECRET, JWT_EXPIRES_MINUTES
-
-ADMIN_EMAIL
-
-GEMINI_*
-
-CORS_ORIGINS, PUBLIC_BASE_URL
-
-app/db.py
