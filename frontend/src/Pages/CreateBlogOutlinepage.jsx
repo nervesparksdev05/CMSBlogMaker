@@ -1,5 +1,5 @@
-// src/screen/CreateBlogIntroParagraph.jsx
-import { useMemo, useState } from "react";
+// src/screen/CreateBlogOutline.jsx
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -13,36 +13,36 @@ import NextButton from "../buttons/NextButton";
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
 
-export default function CreateBlogIntroParagraph() {
+export default function CreateBlogOutlinePage() {
   const [mode, setMode] = useState("ai"); // "ai" | "manual"
 
-  // AI state: empty => show button, after generate => show selectable list
-  const [aiIntros, setAiIntros] = useState([]);
+  // AI state
+  const [aiOutlines, setAiOutlines] = useState([]);
   const [selectedAiIndex, setSelectedAiIndex] = useState(0);
 
-  // Manual state
-  const [manualIntro, setManualIntro] = useState("");
+  // Manual state (multi-line)
+  const [manualOutline, setManualOutline] = useState("");
 
-  const selectedIntro = useMemo(() => {
-    if (mode === "manual") return manualIntro;
-    return aiIntros[selectedAiIndex] || "";
-  }, [mode, manualIntro, aiIntros, selectedAiIndex]);
+  const selectedOutline = useMemo(() => {
+    if (mode === "manual") return manualOutline;
+    return aiOutlines[selectedAiIndex] || "";
+  }, [mode, manualOutline, aiOutlines, selectedAiIndex]);
 
   const handleGenerate = () => {
     // replace with your API call
     const demo = [
-      "Artificial Intelligence is reshaping how we live and work—powering tools that learn from data, automate routine tasks, and unlock new creative possibilities. From personalized recommendations to smarter healthcare, AI is already influencing everyday decisions in subtle but powerful ways.",
-      "In the last decade, AI has moved from research labs into real products, changing industries at a rapid pace. As models become more capable, organizations and individuals are discovering new ways to use AI for productivity, creativity, and innovation—while also navigating new ethical questions.",
-      "Whether you're a student, a professional, or simply curious, understanding AI today is becoming essential. In this blog, we’ll explore what AI is, where it’s being used, and how its evolution may shape the future of society, careers, and technology.",
+      "• Introduction\n• What is AI?\n• How AI Works (Data + Models)\n• Real-world Applications\n• Benefits and Risks\n• Ethical Considerations\n• Future of AI\n• Conclusion",
+      "• Hook + Context\n• History of AI (brief)\n• Core Concepts (ML, DL)\n• Use Cases by Industry\n• Challenges (bias, privacy)\n• Practical Tips to Get Started\n• Summary + CTA",
+      "• Opening Story\n• Definitions + Key Terms\n• Why AI Matters Today\n• AI in Everyday Life\n• AI in Business\n• Common Misconceptions\n• What’s Next\n• Wrap-up",
     ];
-    setAiIntros(demo);
+    setAiOutlines(demo);
     setSelectedAiIndex(0);
   };
 
   const AiList = (
     <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
       <div className="max-h-[210px] overflow-auto p-3 space-y-2">
-        {aiIntros.map((t, idx) => {
+        {aiOutlines.map((t, idx) => {
           const active = idx === selectedAiIndex;
           return (
             <button
@@ -64,7 +64,7 @@ export default function CreateBlogIntroParagraph() {
                 alt=""
                 className="w-[18px] h-[18px] mt-[2px]"
               />
-              <span className="text-[13px] leading-[18px] text-[#111827]">
+              <span className="text-[13px] leading-[18px] text-[#111827] whitespace-pre-line">
                 {t}
               </span>
             </button>
@@ -77,12 +77,12 @@ export default function CreateBlogIntroParagraph() {
   const ManualBox = (
     <div className="mt-4">
       <div className="text-[12px] font-medium text-[#111827] mb-2">
-        Write Introduction of Blog
+        Write outline of Blog
       </div>
       <textarea
-        value={manualIntro}
-        onChange={(e) => setManualIntro(e.target.value)}
-        placeholder="Write introduction of blog..."
+        value={manualOutline}
+        onChange={(e) => setManualOutline(e.target.value)}
+        placeholder="Write outline of blog..."
         className="
           w-full
           h-[170px]
@@ -115,28 +115,25 @@ export default function CreateBlogIntroParagraph() {
 
           <IncreasingDotsInterface />
 
-          {/* helper text (like screenshot) */}
           <div className="mt-4 text-center text-[11px] text-[#111827] font-medium">
-            Let&apos;s now write your blog introduction which will be the beginning of an
-            amazing blog post. You will be able to edit it afterwards.
+            Write your blog outline which will be the structure of your article. You will be able to edit it afterwards.
           </div>
 
           <div className="mt-3">
             <GeneratorCard
-              headerTitle="Generate an intro paragraph or write your own"
+              headerTitle="Generate an outline (subheadings) for your post"
               options={[
-                { key: "ai", label: "Generate Title with AI" }, // keep label as your screenshot
+                { key: "ai", label: "Generate Title with AI" }, // keep label like screenshot
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
               onSelect={setMode}
-              centerTitle="Generate Blog Intro with AI"
-              centerSubtitle="Click on this button to generate intro for your blog"
-              buttonText="Generate Blog Intro"
+              centerTitle="Generate Blog Outline with AI"
+              centerSubtitle="Click on this button to generate outline for your blog"
+              buttonText="Generate Blog outline"
               onButtonClick={handleGenerate}
             >
-              {/* same behavior as previous page */}
-              {mode === "ai" ? (aiIntros.length ? AiList : null) : ManualBox}
+              {mode === "ai" ? (aiOutlines.length ? AiList : null) : ManualBox}
             </GeneratorCard>
           </div>
 
@@ -146,7 +143,7 @@ export default function CreateBlogIntroParagraph() {
           </div>
 
           {/* debug */}
-          {/* <pre className="mt-4 text-xs">{selectedIntro}</pre> */}
+          {/* <pre className="mt-4 text-xs whitespace-pre-wrap">{selectedOutline}</pre> */}
         </div>
       </div>
     </div>

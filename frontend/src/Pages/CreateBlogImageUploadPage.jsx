@@ -10,7 +10,7 @@ import NanoBananaImageCard from "../interface/NanoBananaImageCard";
 import PreviousButton from "../buttons/PreviousButton";
 import NextButton from "../buttons/NextButton";
 
-export default function CreateBlogImageUpload() {
+export default function CreateBlogImageUploadPage() {
   const [nanoOpen, setNanoOpen] = useState(false);
 
   // gallery images shown on page
@@ -134,7 +134,7 @@ export default function CreateBlogImageUpload() {
         <div className="flex-1">
           <HeaderBottomBar title="Content Management System" />
 
-          <div className="px-10 pt-6">
+          <div className="px-10 pt-6 pb-28">
             <BackToDashBoardButton />
 
             <div className="mt-3">
@@ -156,10 +156,57 @@ export default function CreateBlogImageUpload() {
                 }}
               />
             </div>
+          </div>
 
-            <div className="mt-3 mb-3 flex items-center justify-between">
-              <PreviousButton />
-              <NextButton disabled={!hasImages} />
+          {/* ✅ Improved bottom header bar */}
+          <div className="fixed left-0 right-0 bottom-0 z-40">
+            {/* subtle blur + border */}
+            <div className="bg-white/80 backdrop-blur-md border-t border-[#E5E7EB]">
+              <div className="max-w-[1200px] mx-auto px-10 py-3 flex items-center justify-between">
+                {/* left status */}
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      hasImages ? "bg-green-500" : "bg-amber-500"
+                    }`}
+                  />
+                  <div className="text-[12px] text-[#111827]">
+                    <span className="font-semibold">
+                      {hasImages ? "Cover selected" : "Cover required"}
+                    </span>
+                    <span className="text-[#6B7280]">
+                      {" "}
+                      • {images.length} image{images.length === 1 ? "" : "s"} in
+                      gallery
+                    </span>
+                  </div>
+                </div>
+
+                {/* right actions */}
+                <div className="flex items-center gap-3">
+                  <div className="hidden sm:block">
+                    <PreviousButton />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNanoOpen(true);
+                      setStage("form");
+                    }}
+                    className="h-[36px] px-4 rounded-[10px] border border-[#E5E7EB] bg-white text-[#111827] text-[12px] font-semibold hover:bg-[#F9FAFB] active:scale-[0.99]"
+                  >
+                    Generate with Nano Banana
+                  </button>
+
+                  <NextButton disabled={!hasImages} />
+                </div>
+              </div>
+
+              {/* small helper row for mobile */}
+              <div className="sm:hidden px-10 pb-3 flex items-center justify-between">
+                <PreviousButton />
+              </div>
             </div>
           </div>
         </div>

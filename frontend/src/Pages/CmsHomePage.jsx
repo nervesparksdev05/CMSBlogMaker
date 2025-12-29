@@ -7,7 +7,7 @@ import Sidebar from "../interface/SidebarInterface";
 import FourCardsRow from "../interface/FourCardsRow";
 import TemplateTableCard from "../interface/TemplateTableCard";
 
-export default function CmsDashboard() {
+export default function CmsHomePage() {
   const [rows, setRows] = useState([
     {
       id: 1,

@@ -13,7 +13,7 @@ import NextButton from "../buttons/NextButton";
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
 
-export default function CreateBlogTitle() {
+export default function CreateBlogTitlePage() {
   const [mode, setMode] = useState("ai"); // "ai" | "manual"
 
   // AI list state

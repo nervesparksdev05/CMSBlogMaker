@@ -7,7 +7,7 @@ import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
 import BlogDetails from "../interface/BlogDetails";
 import NextButton from "../buttons/NextButton";
 
-export default function CreateBlogDashboard() {
+export default function CreateBlogPage() {
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       {/* ✅ sticky stack */}

@@ -1,32 +1,50 @@
+// src/App.jsx
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-import CmsDashboard from "./screens/CmsDashboard.jsx"
-import CreateBlogDashboard from "./screens/CreateBlogDashboard"
-import CreateBlogTitle from "./screens/CreateBlogTitle"
-import CreateBlogIntroParagraph from "./screens/CreateBlogIntroParagraph"
-import CreateBlogOutline from "./screens/CreateBlogOutline"
-import CreateBlogImageUpload from "./screens/CreateBlogImageUpload"
-import ReviewInfoPage from "./screens/ReviewInfoPage"
-import GeneratedBlogPage from "./screens/GeneratedBlogPage"
-import SavedBlogPage from "./screens/SavedBlogPage"
-// import NanoBananaPage from "./screens/NanoBananaPage.jsx"
-function App() {
- 
+import CmsHomePage from "./Pages/CmsHomePage.jsx";
+import CreateBlogPage from "./Pages/CreateBlogPage.jsx";
+import CreateBlogTitlePage from "./Pages/CreateBlogTitlePage.jsx";
+import CreateBlogIntroParagraphPage from "./Pages/CreateBlogIntroParagraphPage.jsx";
+import CreateBlogOutlinePage from "./Pages/CreateBlogOutlinepage.jsx";
+import CreateBlogImageUploadPage from "./Pages/CreateBlogImageUploadPage.jsx";
+import ReviewInfoPage from "./Pages/ReviewInfoPage.jsx";
+import GeneratedBlogPage from "./Pages/GeneratedBlogPage.jsx";
+import SavedBlogPage from "./Pages/SavedBlogPage.jsx";
+import NanoBananaPage from "./Pages/NanoBananaPage.jsx";
 
+function GalleryPage() {
   return (
-    <>
-
-      {/* <CmsDashboard/> */}
-      {/* <CreateBlogDashboard/> */}
-      {/* <CreateBlogTitle/> */}
-      {/* <CreateBlogIntroParagraph/> */}
-      {/* <CreateBlogOutline/> */}
-      {/* <CreateBlogImageUpload/> */}
-      {/* <ReviewInfoPage/> */}
-      {/* <GeneratedBlogPage/> */}
-      {/* <SavedBlogPage/> */}
-      {/* <NanoBananaPage/> */}
-    </>
-  )
+    <div className="p-6 text-[#111827]">
+      Gallery page coming soon.
+    </div>
+  );
 }
 
-export default App
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        {/* default */}
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+        {/* sidebar routes */}
+        <Route path="/dashboard" element={<CmsHomePage />} />
+        <Route path="/create-blog" element={<CreateBlogPage />} />
+        <Route path="/saved-blogs" element={<SavedBlogPage />} />
+        <Route path="/generate-image" element={<NanoBananaPage />} />
+        <Route path="/gallery" element={<GalleryPage />} />
+
+        {/* optional: step routes (use if you want direct URLs for steps) */}
+        <Route path="/create-blog/title" element={<CreateBlogTitlePage />} />
+        <Route path="/create-blog/intro" element={<CreateBlogIntroParagraphPage />} />
+        <Route path="/create-blog/outline" element={<CreateBlogOutlinePage />} />
+        <Route path="/create-blog/image" element={<CreateBlogImageUploadPage />} />
+        <Route path="/create-blog/review" element={<ReviewInfoPage />} />
+        <Route path="/create-blog/generated" element={<GeneratedBlogPage />} />
+
+        {/* fallback */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}

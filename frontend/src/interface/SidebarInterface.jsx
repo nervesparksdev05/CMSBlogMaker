@@ -1,4 +1,6 @@
 // src/interface/Sidebar.jsx
+import { NavLink } from "react-router-dom";
+
 import DashboardIcon from "../assets/dashboard.svg";
 import CreateBlogIcon from "../assets/write-icon.svg";
 import SavedBlogIcon from "../assets/savedblog-icon.svg";
@@ -13,43 +15,33 @@ const sidebarItems = [
   { key: "gallery", label: "Gallery", to: "/gallery", icon: GalleryIcon },
 ];
 
-export default function Sidebar({ activeKey = "dashboard", onItemClick }) {
-  const handleClick = (item) => {
-    if (typeof onItemClick === "function") return onItemClick(item);
-    window.location.assign(item.to);
-  };
-
+export default function Sidebar({ onItemClick }) {
   return (
     <aside className="w-[256px] bg-white border-r border-[#E5E7EB] sticky top-[143.92px] h-[calc(100vh-143.92px)] overflow-y-auto">
       <div className="px-[10px] pt-[10px]">
         <nav className="flex flex-col gap-[6px]">
-          {sidebarItems.map((item) => {
-            const active = item.key === activeKey;
-
-            return (
-              <button
-                key={item.key}
-                type="button"
-                onClick={() => handleClick(item)}
-                className={[
+          {sidebarItems.map((item) => (
+            <NavLink
+              key={item.key}
+              to={item.to}
+              onClick={() => {
+                if (typeof onItemClick === "function") onItemClick(item);
+              }}
+              className={({ isActive }) =>
+                [
                   "w-full min-h-[44px] flex items-center gap-[12px] px-[14px] rounded-[8px] text-left transition-colors",
-                  active
+                  isActive
                     ? "bg-[#EDEDFF] text-[#4443E4] font-semibold"
                     : "bg-transparent text-[#6B7280] font-normal hover:bg-[#F3F4FF]",
-                ].join(" ")}
-              >
-                <img
-                  src={item.icon}
-                  alt=""
-                  className="w-[20px] h-[20px] shrink-0"
-                />
-
-                <span className="text-[14px] leading-[18px] whitespace-pre-line">
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+                ].join(" ")
+              }
+            >
+              <img src={item.icon} alt="" className="w-[20px] h-[20px] shrink-0" />
+              <span className="text-[14px] leading-[18px] whitespace-pre-line">
+                {item.label}
+              </span>
+            </NavLink>
+          ))}
         </nav>
       </div>
     </aside>
