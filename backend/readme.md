@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # 🚀 CMS Blog Backend (FastAPI + MongoDB + Gemini + Image Generation)
 
 Production-ready backend for a multi-step **AI Blog Generator CMS**.
