@@ -1,307 +1,337 @@
-# 🚀 CMS Blog Backend (FastAPI + MongoDB + Gemini + Image Generation)
+# 🚀 CMS Blog Backend
 
-A **production-ready FastAPI backend** for a multi-step **AI Blog Generator CMS**.
+> A production-ready FastAPI backend for an AI-powered Blog Generator CMS with multi-step content creation workflow.
+---
+
+## ✨ Features
+
+### 🔐 Authentication & Authorization
+- **JWT-based authentication** with secure token management
+- **Role-based access control** (Admin vs User)
+- **Argon2 password hashing** for maximum security
+
+### 🤖 AI-Powered Content Generation
+- **5-step blog creation workflow** with exactly 5 options at each step:
+  - Topic Ideas → Titles → Intros → Outlines → Image Prompts
+- **Gemini AI integration** for intelligent content generation
+- **AI-generated cover images** with custom prompts
+- **Markdown to HTML conversion** with live preview
+
+### 📝 Blog Management
+- **Multi-stage publishing workflow**: `saved → pending → published/rejected`
+- **Admin moderation panel** for content approval
+- **Image upload support** (generated or device upload)
+- **Dashboard statistics** for content tracking
+
+### 🎨 Developer Experience
+- **Clean REST API** with automatic documentation (Swagger/ReDoc)
+- **Async MongoDB operations** using Motor
+- **Modular architecture** with services and routers
+- **Type-safe** with Pydantic schemas
 
 ---
 
-## 📌 Highlights
+## 🏗️ Architecture
 
-- ✅ **JWT Authentication** (Signup/Login)
-- ✅ **Role-based access** (**Admin** vs **User**)
-- ✅ **AI generation flow** with **exactly 5 options** at every step
-- ✅ **Cover image generation** (1 final image) + device upload
-- ✅ **Preview output**: **HTML + Markdown side-by-side**
-- ✅ **Publishing workflow**: `saved → pending → published/rejected`
-- ✅ MongoDB stores only:
-  - `users`
-  - `blogs` (final blog + final metadata)
-
----
-
-## 🧰 Tech Stack
-
-| Layer | Technology |
-|------|------------|
-| API | FastAPI |
-| Database | MongoDB (Motor async driver) |
-| Authentication | JWT (`python-jose`) |
-| Password Hashing | Argon2 (`argon2-cffi`) |
-| AI | Gemini (`google-genai`) |
-| Markdown → HTML | `markdown` |
-| Server | Uvicorn |
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         FastAPI App                         │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐   │
+│  │   Auth   │  │    AI    │  │  Blogs   │  │  Admin   │   │
+│  │  Router  │  │  Router  │  │  Router  │  │  Router  │   │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘   │
+├───────┼─────────────┼─────────────┼─────────────┼──────────┤
+│  ┌────▼─────────────▼─────────────▼─────────────▼──────┐   │
+│  │              Services Layer                          │   │
+│  │  • Gemini Service  • Image Service  • Markdown      │   │
+│  └──────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────┤
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │                  MongoDB (Motor)                     │   │
+│  │            • users_col  • blogs_col                  │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## ✅ Requirements
+## 🛠️ Tech Stack
 
-### Python
-- ✅ Python **3.11** (recommended)
-- ✅ Python 3.10 also supported
+| Component | Technology |
+|-----------|-----------|
+| **Framework** | FastAPI |
+| **Database** | MongoDB (Motor async driver) |
+| **Authentication** | JWT (`python-jose`) |
+| **Password Security** | Argon2 (`argon2-cffi`) |
+| **AI Engine** | Google Gemini AI |
+| **Markdown Parser** | `markdown` |
+| **Server** | Uvicorn (ASGI) |
 
-### MongoDB
-- Local MongoDB or MongoDB Atlas
-- Default local URI: `mongodb://localhost:27017`
-- Database name: `cms_blog`
+---
+
+## 📋 Prerequisites
+
+- **Python 3.10+** (Python 3.11 recommended)
+- **MongoDB** (local installation or MongoDB Atlas)
+- **Google Gemini API Key** ([Get one here](https://ai.google.dev/))
+
+---
+
+## 🚀 Quick Start
+
+### 1️⃣ Clone the Repository
+
+```bash
+git clone <repository-url>
+cd backend
+```
+
+### 2️⃣ Create Virtual Environment
+
+**Windows (PowerShell):**
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+```
+
+**Linux/macOS:**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+### 3️⃣ Install Dependencies
+
+```bash
+python -m pip install -U pip
+pip install -r requirements.txt
+```
+
+### 4️⃣ Configure Environment
+
+Create a `.env` file in the `backend/` directory:
+
+```env
+# Application
+APP_NAME=CMS Blog API
+ENV=dev
+
+# Database
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=cms_blog
+
+# Security
+JWT_SECRET=your-super-secret-key-change-this
+JWT_EXPIRES_MINUTES=10080
+
+# Admin Account
+ADMIN_EMAIL=admin@company.com
+
+# CORS & Public URL
+CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+PUBLIC_BASE_URL=http://127.0.0.1:8000
+
+# Gemini AI
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_TEXT_MODEL=gemini-2.5-flash
+GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+```
+
+> 💡 **Tip:** Copy `.env.example` and customize it for your environment.
+
+### 5️⃣ Run the Server
+
+```bash
+uvicorn main:app --reload --port 8000
+```
+
+The API will be available at:
+- **API**: http://localhost:8000
+- **Swagger Docs**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
 ---
 
 ## 📁 Project Structure
 
-```text
+```
 backend/
-  main.py
-  requirements.txt
-  README.md
-  .env.example
-  .env                 # local only (DO NOT COMMIT)
-  uploads/             # generated/uploaded images
-  app/
-    __init__.py
-    config.py
-    db.py
-    deps.py
-    schemas.py
-    security.py
-    routers/
-      __init__.py
-      auth.py
-      ai.py
-      blogs.py
-      admin.py
-    services/
-      __init__.py
-      gemini_service.py
-      image_service.py
-      markdown_service.py
-
-      ---
-
-### 📌 Root
-
-#### `main.py`
-**Application entrypoint**
-- Creates the FastAPI instance  
-- Adds CORS middleware  
-- Mounts `uploads/` folder at `/uploads`  
-- Includes routers:
-  - `/auth`
-  - `/ai`
-  - `/blogs`
-  - `/admin`
-- Runs `init_indexes()` at startup for MongoDB indexes  
-
-#### `requirements.txt`
-- Pinned dependencies for stable installs across machines.
-
-#### `.env.example`
-- Template for local environment variables.
-
-#### `.env` *(local only)*
-Contains secrets like:
-- MongoDB URI  
-- JWT secret  
-- Gemini API key  
-
-> ⚠️ Do not commit this file to GitHub.
-
-#### `uploads/`
-Stores:
-- Generated cover images  
-- Uploaded cover images  
-
-Served via:
-- `GET /uploads/<filename>`
+├── 📄 main.py                    # Application entrypoint
+├── 📄 requirements.txt           # Python dependencies
+├── 📄 .env.example               # Environment template
+├── 📄 .env                       # Local config (DO NOT COMMIT)
+├── 📂 uploads/                   # Generated/uploaded images
+│
+├── 📂 app/
+│   ├── 📄 __init__.py
+│   ├── 📄 config.py              # Settings & environment config
+│   ├── 📄 db.py                  # MongoDB connection
+│   ├── 📄 deps.py                # Auth dependencies
+│   ├── 📄 schemas.py             # Pydantic models
+│   ├── 📄 security.py            # JWT & password utilities
+│   │
+│   ├── 📂 routers/
+│   │   ├── 📄 __init__.py
+│   │   ├── 📄 auth.py            # Signup/Login endpoints
+│   │   ├── 📄 ai.py              # AI generation endpoints
+│   │   ├── 📄 blogs.py           # Blog CRUD & workflow
+│   │   └── 📄 admin.py           # Admin moderation panel
+│   │
+│   └── 📂 services/
+│       ├── 📄 __init__.py
+│       ├── 📄 gemini_service.py  # Gemini AI integration
+│       ├── 📄 image_service.py   # Image generation
+│       └── 📄 markdown_service.py # Markdown → HTML
+```
 
 ---
 
-## 🧠 `app/` (Core)
+## 🔌 API Endpoints
 
-#### `app/config.py`
-Loads env config using `pydantic-settings` and exposes `settings`:
-- `MONGODB_URI`, `MONGODB_DB`
-- `JWT_SECRET`, `JWT_EXPIRES_MINUTES`
-- `ADMIN_EMAIL`
-- `GEMINI_*`
-- `CORS_ORIGINS`, `PUBLIC_BASE_URL`
+### 🔐 Authentication (`/auth`)
 
-#### `app/db.py`
-MongoDB connection via Motor:
-- Creates client and database reference
-- Exposes collections:
-  - `users_col`
-  - `blogs_col`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/auth/signup` | Register new user |
+| `POST` | `/auth/login` | Login and get JWT token |
 
-`init_indexes()` creates:
-- Unique email index for users
-- Common blog indexes (`status`, `owner`, `created_at`)
+### 🤖 AI Generation (`/ai`)
 
-#### `app/deps.py`
-Authentication dependencies:
-- Extract token from `Authorization: Bearer ...`
-- Decode JWT and load user
-- Guards:
-  - `require_user`
-  - `require_admin`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/ai/ideas` | Generate 5 topic ideas |
+| `POST` | `/ai/titles` | Generate 5 titles |
+| `POST` | `/ai/intros` | Generate 5 intros |
+| `POST` | `/ai/outlines` | Generate 5 outlines |
+| `POST` | `/ai/image-prompts` | Generate 5 image prompts |
+| `POST` | `/ai/image-generate` | Generate cover image |
+| `POST` | `/ai/blog-generate` | Generate final blog (MD + HTML) |
 
-#### `app/schemas.py`
-Pydantic schemas:
-- **Auth schemas**: `SignupIn`, `LoginIn`, `TokenOut`
-- **AI request schemas**: `TopicIdeasIn`, `TitlesIn`, `IntrosIn`, `OutlinesIn`, `ImagePromptsIn`, etc.
-- **Blog schemas**:
-  - `BlogMeta` (final selections only)
-  - `FinalBlog` (markdown + html + render)
-  - `BlogCreateIn` (store final)
-  - `BlogOut`, `BlogListItem`
+### 📝 Blog Management (`/blogs`)
 
-#### `app/security.py`
-Security utilities:
-- Argon2 hashing:
-  - `hash_password`
-  - `verify_password`
-- JWT helpers:
-  - `create_access_token`
-  - `decode_token`
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/blogs` | Save final blog |
+| `GET` | `/blogs/mine` | List user's blogs |
+| `GET` | `/blogs/{id}` | Get single blog |
+| `POST` | `/blogs/{id}/request-publish` | Submit for approval |
+| `GET` | `/blogs/dashboard/stats` | Dashboard statistics |
+| `POST` | `/blogs/upload/image` | Upload cover image |
+
+### 👑 Admin Panel (`/admin`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/blogs` | List all blogs (filterable) |
+| `POST` | `/admin/blogs/{id}/approve` | Approve blog |
+| `POST` | `/admin/blogs/{id}/reject` | Reject with feedback |
 
 ---
 
-## 🌐 `app/routers/` (API Routes)
+## 🎯 Workflow
 
-#### `routers/auth.py`
-Auth endpoints:
-- `POST /auth/signup`
-- `POST /auth/login`
+```mermaid
+graph LR
+    A[Topic Ideas] --> B[Titles]
+    B --> C[Intros]
+    C --> D[Outlines]
+    D --> E[Image Prompts]
+    E --> F[Generate Image]
+    F --> G[Generate Blog]
+    G --> H[Save Draft]
+    H --> I[Request Publish]
+    I --> J{Admin Review}
+    J -->|Approve| K[Published]
+    J -->|Reject| L[Rejected]
+```
 
-Role assignment:
-- if `signup_email == ADMIN_EMAIL` → role = `admin`
-- else → role = `user`
-
-#### `routers/ai.py`
-AI endpoints (Gemini):
-- `POST /ai/ideas` → **5** topic ideas
-- `POST /ai/titles` → **5** titles
-- `POST /ai/intros` → **5** intros
-- `POST /ai/outlines` → **5** outline variants
-- `POST /ai/image-prompts` → **5** image prompts
-- `POST /ai/image-generate` → **1** cover image
-- `POST /ai/blog-generate` → final blog (**markdown + html**)
-
-#### `routers/blogs.py`
-Blog storage/workflow:
-- `POST /blogs` → save final blog to DB
-- `GET /blogs/mine` → list blogs for table
-- `GET /blogs/{id}` → fetch one blog
-- `POST /blogs/{id}/request-publish` → set status `pending`
-- `GET /blogs/dashboard/stats` → dashboard card counts
-- `POST /blogs/upload/image` → upload cover image
-
-#### `routers/admin.py`
-Admin-only moderation:
-- `GET /admin/blogs?status=...`
-- `POST /admin/blogs/{id}/approve`
-- `POST /admin/blogs/{id}/reject?feedback=...`
+**Each step provides exactly 5 options** to choose from, ensuring a guided and structured content creation process.
 
 ---
 
-## 🧩 `app/services/` (Business Logic)
+## 🔒 Security Features
 
-#### `services/gemini_service.py`
-All Gemini generation functions:
-- topic ideas, titles, intros, outlines, image prompts, final blog markdown  
-Responsible for consistent **“5 options”** behavior.
-
-#### `services/image_service.py`
-Cover image generation:
-- Generates **1** image
-- Stores in `uploads/`
-- Returns accessible URL using `PUBLIC_BASE_URL`
-
-#### `services/markdown_service.py`
-Markdown conversion:
-- Converts markdown → HTML
-- Used for preview side-by-side output
+- **JWT Authentication** with configurable expiration
+- **Argon2 Password Hashing** (industry standard)
+- **Role-Based Access Control** (RBAC)
+- **CORS Protection** with whitelist
+- **Environment-based Configuration** (no hardcoded secrets)
 
 ---
 
-# ⚙️ Setup (Windows PowerShell)
+## 📊 Database Schema
 
-#  1) Go to backend folder
-```powershell
-cd backend
+### Users Collection
+```json
+{
+  "_id": "ObjectId",
+  "email": "user@example.com",
+  "password_hash": "argon2$...",
+  "role": "user|admin",
+  "created_at": "ISO-8601"
+}
+```
 
-# Create and activate venv
-```python -m venv venv
-.\venv\Scripts\Activate.ps1
-python -m pip install -U pip
+### Blogs Collection
+```json
+{
+  "_id": "ObjectId",
+  "owner": "user_id",
+  "status": "saved|pending|published|rejected",
+  "title": "Blog Title",
+  "intro": "Introduction text",
+  "outline": ["Section 1", "Section 2"],
+  "image_url": "/uploads/image.png",
+  "markdown": "# Blog content...",
+  "html": "<h1>Blog content...</h1>",
+  "created_at": "ISO-8601",
+  "admin_feedback": "Optional rejection reason"
+}
+```
 
-# ENV
+---
 
-```APP_NAME=CMS Blog API
-ENV=dev
+## 🧪 Development
 
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB=cms_blog
+### Run with Auto-reload
+```bash
+uvicorn main:app --reload --port 8000
+```
 
-JWT_SECRET=change-me
-JWT_EXPIRES_MINUTES=10080
+### Access Interactive Docs
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-ADMIN_EMAIL=admin@company.com
+### MongoDB Indexes
+Automatically created on startup:
+- **Users**: Unique index on `email`
+- **Blogs**: Indexes on `status`, `owner`, `created_at`
 
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-PUBLIC_BASE_URL=http://127.0.0.1:8000
+---
 
-GEMINI_API_KEY=your_key
-GEMINI_TEXT_MODEL=gemini-2.5-flash
-GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
+## 🚢 Deployment
 
-📌 Root
-main.py — Application Entrypoint
+### Environment Variables
+Ensure all required environment variables are set in production:
+- Set `ENV=production`
+- Use strong `JWT_SECRET`
+- Configure `MONGODB_URI` for MongoDB Atlas
+- Set `PUBLIC_BASE_URL` to your domain
 
-Creates the FastAPI instance
+### Recommended Stack
+- **Backend**: FastAPI on Docker/Railway/Render
+- **Database**: MongoDB Atlas
+- **Static Files**: CDN for uploaded images
+- **Reverse Proxy**: Nginx or Caddy
 
-Adds CORS middleware
+---
 
-Mounts uploads/ folder at /uploads
+## 📝 License
 
-Includes routers:
+This project is licensed under the MIT License.
 
-/auth
+---
 
-/ai
-
-/blogs
-
-/admin
-
-Runs init_indexes() at startup for MongoDB indexes
-
-requirements.txt
-
-Pinned dependencies for stable installs across machines.
-
-.env.example
-
-Template for local environment variables.
-
-.env (local only)
-
-Contains secrets like:
-
-MongoDB URI
-
-JWT secret
-
-Gemini API key
-
-
-uploads/
-
-Stores:
-
-Generated cover images
-
-Uploaded cover images
-
-Served via:
-
-GET /uploads/<filename>
+.
 
