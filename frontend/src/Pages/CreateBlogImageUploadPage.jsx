@@ -14,8 +14,8 @@ export default function CreateBlogImageUploadPage() {
   const [nanoOpen, setNanoOpen] = useState(false);
 
   // gallery images shown on page
-  const [images, setImages] = useState([]); // [{id, src}]
-  const hasImages = images.length > 0;
+  const [images, setImages] = useState([]); // [{id, src, file?}]
+  const [selectedCover, setSelectedCover] = useState(""); // ✅ selected cover src
 
   // modal form state
   const [prompt, setPrompt] = useState("");
@@ -47,7 +47,15 @@ export default function CreateBlogImageUploadPage() {
       file: f,
     }));
 
-    setImages((prev) => [...mapped, ...prev]);
+    setImages((prev) => {
+      const next = [...mapped, ...prev];
+
+      // ✅ auto-select newest upload
+      const newest = mapped[0]?.src;
+      if (newest) setSelectedCover(newest);
+
+      return next;
+    });
   };
 
   const handleUploadFromDevice = (files) => addToGalleryFromFiles(files);
@@ -65,16 +73,25 @@ export default function CreateBlogImageUploadPage() {
     setRefImages(mapped);
   };
 
+  // ✅ Keep selection valid if images list changes
+  useEffect(() => {
+    if (!images.length) {
+      setSelectedCover("");
+      return;
+    }
+    const srcs = new Set(images.map((x) => x.src));
+    if (!selectedCover || !srcs.has(selectedCover)) {
+      setSelectedCover(images[0].src); // fallback select first
+    }
+  }, [images, selectedCover]);
+
   // fake progress animation for "Generating..."
   useEffect(() => {
     if (stage !== "generating") return;
 
     setProgress(0);
     const t = setInterval(() => {
-      setProgress((p) => {
-        const next = Math.min(100, p + Math.floor(Math.random() * 7) + 3);
-        return next;
-      });
+      setProgress((p) => Math.min(100, p + Math.floor(Math.random() * 7) + 3));
     }, 250);
 
     return () => clearInterval(t);
@@ -87,7 +104,6 @@ export default function CreateBlogImageUploadPage() {
 
     const timeout = setTimeout(() => {
       setGeneratedImages([
-        // demo results (replace with API outputs)
         "https://picsum.photos/seed/bad/360/520",
         "https://picsum.photos/seed/good/360/520",
       ]);
@@ -98,7 +114,6 @@ export default function CreateBlogImageUploadPage() {
   }, [stage, progress]);
 
   const handleGenerate = async () => {
-    // call your API here, then update progress via events OR keep fake progress like now
     setStage("generating");
   };
 
@@ -114,7 +129,14 @@ export default function CreateBlogImageUploadPage() {
       id: `gen-${Date.now()}-${Math.random()}`,
       src,
     }));
-    setImages((prev) => [...mapped, ...prev]);
+
+    setImages((prev) => {
+      const next = [...mapped, ...prev];
+      // ✅ auto-select newest generated
+      const newest = mapped[0]?.src;
+      if (newest) setSelectedCover(newest);
+      return next;
+    });
 
     // close + reset modal
     setNanoOpen(false);
@@ -124,17 +146,20 @@ export default function CreateBlogImageUploadPage() {
     setRefImages([]);
   };
 
+  const canProceed = Boolean(selectedCover); // ✅ Next enabled only if selected
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
-      <MainHeader />
+      <div className="sticky top-0 z-50 w-full">
+        <MainHeader />
+        <HeaderBottomBar title="Content Management System" />
+      </div>
 
       <div className="w-full flex">
         <Sidebar />
 
         <div className="flex-1">
-          <HeaderBottomBar title="Content Management System" />
-
-          <div className="px-10 pt-6 pb-28">
+          <div className="px-10 pt-6 pb-10">
             <BackToDashBoardButton />
 
             <div className="mt-3">
@@ -149,6 +174,8 @@ export default function CreateBlogImageUploadPage() {
               <GalleryCard
                 title="Gallery"
                 images={images.map((x) => x.src)}
+                selectedSrc={selectedCover}
+                onSelect={setSelectedCover}
                 onUpload={(files) => handleUploadFromDevice(files)}
                 onGenerate={() => {
                   setNanoOpen(true);
@@ -156,56 +183,12 @@ export default function CreateBlogImageUploadPage() {
                 }}
               />
             </div>
-          </div>
 
-          {/* ✅ Improved bottom header bar */}
-          <div className="fixed left-0 right-0 bottom-0 z-40">
-            {/* subtle blur + border */}
-            <div className="bg-white/80 backdrop-blur-md border-t border-[#E5E7EB]">
-              <div className="max-w-[1200px] mx-auto px-10 py-3 flex items-center justify-between">
-                {/* left status */}
-                <div className="flex items-center gap-3">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      hasImages ? "bg-green-500" : "bg-amber-500"
-                    }`}
-                  />
-                  <div className="text-[12px] text-[#111827]">
-                    <span className="font-semibold">
-                      {hasImages ? "Cover selected" : "Cover required"}
-                    </span>
-                    <span className="text-[#6B7280]">
-                      {" "}
-                      • {images.length} image{images.length === 1 ? "" : "s"} in
-                      gallery
-                    </span>
-                  </div>
-                </div>
-
-                {/* right actions */}
-                <div className="flex items-center gap-3">
-                  <div className="hidden sm:block">
-                    <PreviousButton />
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNanoOpen(true);
-                      setStage("form");
-                    }}
-                    className="h-[36px] px-4 rounded-[10px] border border-[#E5E7EB] bg-white text-[#111827] text-[12px] font-semibold hover:bg-[#F9FAFB] active:scale-[0.99]"
-                  >
-                    Generate with Nano Banana
-                  </button>
-
-                  <NextButton disabled={!hasImages} />
-                </div>
-              </div>
-
-              {/* small helper row for mobile */}
-              <div className="sm:hidden px-10 pb-3 flex items-center justify-between">
-                <PreviousButton />
+            {/* ✅ Nicely aligned footer buttons */}
+            <div className="mt-3 flex items-center">
+              <PreviousButton />
+              <div className="ml-auto">
+                <NextButton  />
               </div>
             </div>
           </div>

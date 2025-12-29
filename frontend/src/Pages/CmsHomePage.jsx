@@ -1,5 +1,6 @@
 // src/pages/CmsDashboard.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -8,6 +9,8 @@ import FourCardsRow from "../interface/FourCardsRow";
 import TemplateTableCard from "../interface/TemplateTableCard";
 
 export default function CmsHomePage() {
+  const navigate = useNavigate();
+
   const [rows, setRows] = useState([
     {
       id: 1,
@@ -44,7 +47,6 @@ export default function CmsHomePage() {
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
 
-  // ✅ keep selection valid if rows change
   useEffect(() => {
     const ids = new Set(rows.map((r) => r.id));
     setSelectedIds((prev) => prev.filter((id) => ids.has(id)));
@@ -114,7 +116,6 @@ export default function CmsHomePage() {
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
-      {/* ✅ Sticky header stack */}
       <div className="sticky top-0 z-50 w-full">
         <MainHeader />
         <HeaderBottomBar title="Content Management System" />
@@ -144,8 +145,6 @@ export default function CmsHomePage() {
                 onToggleAll={onToggleAll}
                 getRowId={getRowId}
                 onDeleteRow={onDeleteRow}
-                // ✅ IMPORTANT: DO NOT pass onViewDetails
-                // so TemplateTableCard opens its default details modal
               />
             </div>
 
@@ -153,7 +152,7 @@ export default function CmsHomePage() {
               <button
                 type="button"
                 className="text-[16px] font-medium text-[#2563EB] hover:underline"
-                onClick={() => console.log("Show All clicked")}
+                onClick={() => navigate("/saved-blogs")}
               >
                 Show All
               </button>

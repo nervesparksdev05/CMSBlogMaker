@@ -4,7 +4,10 @@ import { useMemo, useRef, useState, useLayoutEffect } from "react";
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
-import NanoBananaImageCard from "../interface/NanoBananaImageCard";
+
+// ✅ Use Template Card (NOT the modal)
+import NanoBananaTemplateCard from "../interface/NanoBananaImageCard";
+
 import GenerateImageIcon from "../assets/generate-image.svg";
 
 function RatioOption({ label, value, selected, onChange }) {
@@ -36,13 +39,13 @@ export default function NanoBananaPage() {
     `A sleek, futuristic dashboard or data visualization. On the left, a blurry, impressionistic "VIBES" meter with a needle wobbling uncertainly. On the right, a clear, crisp set of digital gauges and graphs showing various metrics (e.g., "Context Recall: 85%", "Faithfulness: 92%"). A green checkmark or "SUCCESS" indicator.`
   );
 
-  const [ratio, setRatio] = useState("1:1"); // 1:1 | 4:3 | 3:4
-  const [quality, setQuality] = useState("standard"); // standard | high
+  const [ratio, setRatio] = useState("1:1");
+  const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F2B233");
 
-  // reference images upload
+  // Reference images upload (page-level previews)
   const fileInputRef = useRef(null);
-  const [referenceFiles, setReferenceFiles] = useState([]); // File[]
+  const [referenceFiles, setReferenceFiles] = useState([]);
   const referencePreviews = useMemo(() => {
     return referenceFiles.map((f) => ({
       name: f.name,
@@ -79,23 +82,17 @@ export default function NanoBananaPage() {
     []
   );
 
-  // ✅ native color picker positioning near the widget
+  // Native color picker positioning near widget
   const colorAnchorRef = useRef(null);
   const colorInputRef = useRef(null);
 
   const openColorPickerNearWidget = () => {
     const input = colorInputRef.current;
     if (!input) return;
-
-    // (optional) ensure it's visually near the widget for consistent UX,
-    // but still uses the SAME native <input type="color"> (no extra widget copy).
-    // Some browsers ignore moving the native color dialog (it's OS-controlled),
-    // but this guarantees the click happens from the right place.
     input.focus();
     input.click();
   };
 
-  // (optional) keep the hidden input positioned near the anchor (for browsers that care)
   const [colorPos, setColorPos] = useState({ left: 0, top: 0 });
   useLayoutEffect(() => {
     const el = colorAnchorRef.current;
@@ -133,8 +130,7 @@ export default function NanoBananaPage() {
             <div className="mt-6 w-full rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm">
               <div className="px-7 py-6 flex items-start justify-between gap-6">
                 <div className="flex items-start gap-4">
-                  {/* ✅ use imported icon */}
-                  <div className="w-10 h-10 rounded-[10px]  flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center">
                     <img
                       src={GenerateImageIcon}
                       alt=""
@@ -172,7 +168,7 @@ export default function NanoBananaPage() {
               </div>
 
               <div className="px-7 pb-7">
-                {/* prompt */}
+                {/* Prompt */}
                 <div>
                   <div className="text-[13px] font-medium text-[#111827]">
                     Image Prompt <span className="text-[#DC2626]">*</span>
@@ -228,7 +224,7 @@ export default function NanoBananaPage() {
                     </select>
                   </div>
 
-                  {/* ✅ Anchor wrapper so picker opens “near widget” */}
+                  {/* Color */}
                   <div ref={colorAnchorRef} className="flex items-end gap-4 relative">
                     <div>
                       <div className="text-[13px] font-medium text-[#111827]">Primary color</div>
@@ -247,7 +243,6 @@ export default function NanoBananaPage() {
                         Customize Color
                       </button>
 
-                      {/* ✅ SAME native input, just not "hidden" (some browsers block click on display:none) */}
                       <input
                         ref={colorInputRef}
                         type="color"
@@ -316,7 +311,7 @@ export default function NanoBananaPage() {
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {previousImages.map((img) => (
-                  <NanoBananaImageCard key={img.id} image={img} />
+                  <NanoBananaTemplateCard key={img.id} image={img} />
                 ))}
               </div>
 
