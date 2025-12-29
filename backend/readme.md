@@ -327,11 +327,6 @@ Ensure all required environment variables are set in production:
 
 ---
 
-## 📝 License
-
-This project is licensed under the MIT License.
-
----
 
 .
 
