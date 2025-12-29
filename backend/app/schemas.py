@@ -1,0 +1,196 @@
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Literal, Optional
+from datetime import datetime
+
+# ---------------- AUTH ----------------
+class SignupIn(BaseModel):
+    name: str
+    email: EmailStr
+    password: str
+
+class LoginIn(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserOut(BaseModel):
+    id: str
+    name: str
+    email: EmailStr
+    role: Literal["user", "admin"]
+
+class TokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+
+# ---------------- BLOG CONTENT (FINAL ONLY) ----------------
+class BlogSection(BaseModel):
+    heading: str
+    body_md: str
+    bullets: List[str] = []
+
+class BlogRender(BaseModel):
+    title: str
+    cover_image_url: str = ""
+    intro_md: str = ""
+    sections: List[BlogSection] = []
+    conclusion_md: str = ""
+    references: List[str] = []
+
+class FinalBlog(BaseModel):
+    """
+    What preview shows side-by-side:
+    - html (left)
+    - markdown (right)
+    And what we store in MongoDB.
+    """
+    render: BlogRender
+    markdown: str
+    html: str
+
+# Metadata that came from your multi-step form (final selected/manual only)
+class BlogMeta(BaseModel):
+    language: Literal["English"] = "English"   # fixed
+    tone: str
+    creativity: str
+
+    focus_or_niche: str = ""
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""  # comma separated
+
+    selected_idea: str = ""
+    title: str = ""
+    intro_md: str = ""
+    outline: List[str] = []
+
+    image_prompt: str = ""
+    cover_image_url: str = ""
+
+class AdminReview(BaseModel):
+    requested_at: Optional[datetime] = None
+    reviewed_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_by_name: Optional[str] = None
+    feedback: str = ""
+
+class BlogCreateIn(BaseModel):
+    """
+    Store only final blog + final metadata.
+    """
+    meta: BlogMeta
+    final_blog: FinalBlog
+
+class BlogOut(BaseModel):
+    id: str
+    owner_id: str
+    owner_name: str
+
+    status: Literal["saved", "pending", "published", "rejected"]
+    meta: BlogMeta
+    final_blog: FinalBlog
+
+    admin_review: AdminReview
+    created_at: datetime
+    updated_at: datetime
+    published_at: Optional[datetime] = None
+
+class BlogListItem(BaseModel):
+    id: str
+    title: str
+    created_by: str
+    created_at: datetime
+    status: Literal["saved", "pending", "published", "rejected"]
+
+# ---------------- AI INPUTS ----------------
+AI_OPTIONS_COUNT = 5  # always 5
+
+class TopicIdeasIn(BaseModel):
+    # first page dialog box input
+    focus_or_niche: str = Field(min_length=3)
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+
+    tone: str
+    creativity: str
+
+class TitlesIn(BaseModel):
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+    selected_idea: str
+
+class ImagePromptsIn(BaseModel):
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+    selected_idea: str
+    title: str
+
+class IntrosIn(BaseModel):
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+    selected_idea: str
+    title: str
+
+class OutlinesIn(BaseModel):
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+    selected_idea: str
+    title: str
+    intro_md: str
+
+class ImageGenerateIn(BaseModel):
+    # plus past info (passed as context)
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    selected_idea: str
+    title: str
+
+    prompt: str
+    aspect_ratio: Literal["1:1", "4:3", "3:4", "16:9", "9:16"] = "4:3"
+    quality: Literal["low", "medium", "high"] = "high"
+    primary_color: str = "#4443E4"
+
+class ImageOut(BaseModel):
+    image_url: str
+    meta: dict
+
+class GenerateBlogIn(BaseModel):
+    """
+    Called on 'Generate Blog' button from review page.
+    Produces ONE final blog markdown + html + structured render.
+    """
+    tone: str
+    creativity: str
+    focus_or_niche: str
+    targeted_keyword: str = ""
+    targeted_audience: str = ""
+    reference_links: str = ""
+
+    selected_idea: str
+    title: str
+    intro_md: str
+    outline: List[str]
+
+    cover_image_url: str = ""
+
+class OptionsOut(BaseModel):
+    options: List[str]  # always 5
