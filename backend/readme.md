@@ -1,6 +1,6 @@
-Backend (FastAPI + MongoDB + Gemini + Image Generation)
+##CMS Blog Backend (FastAPI + MongoDB + Gemini + Image Generation)
 
-This backend powers the CMS blog generator flow:
+#This backend powers the CMS blog generator flow:
 
 Auth: Signup/Login (JWT)
 
@@ -48,7 +48,7 @@ MongoDB via motor
 
 JWT via python-jose
 
-Password hashing: Argon2 (argon2-cffi) (supports long passwords)
+Password hashing: Argon2 (argon2-cffi) — supports long passwords
 
 Gemini (text + image) via google-genai
 
@@ -58,24 +58,211 @@ Folder Structure
 backend/
   main.py
   requirements.txt
-  .env                # create locally (not committed)
+  README.md
   .env.example
-  uploads/            # stored generated/uploaded images
+  .env                 # local only (do not commit)
+  uploads/             # generated/uploaded images stored here
   app/
-    config.py         # env settings
-    db.py             # mongo connection + collections + indexes
-    deps.py           # auth dependencies (current user + admin guard)
-    schemas.py        # pydantic schemas
-    security.py       # password hashing + jwt helpers
+    __init__.py
+    config.py
+    db.py
+    deps.py
+    schemas.py
+    security.py
     routers/
-      auth.py         # signup/login
-      ai.py           # all ai endpoints
-      blogs.py        # save/list/get/request-publish + dashboard stats + upload image
-      admin.py        # admin approvals/rejections
+      __init__.py
+      auth.py
+      ai.py
+      blogs.py
+      admin.py
     services/
-      gemini_service.py     # all gemini text generation
-      image_service.py      # image generation + local save to uploads
-      markdown_service.py   # markdown->html
+      __init__.py
+      gemini_service.py
+      image_service.py
+      markdown_service.py
+
+What Each File Does (Detailed)
+Root
+main.py
+
+Creates the FastAPI app
+
+Adds CORS middleware
+
+Mounts /uploads as static file serving
+
+Registers routers: /auth, /ai, /blogs, /admin
+
+Runs startup lifespan() to initialize MongoDB indexes via init_indexes()
+
+requirements.txt
+
+All Python dependencies pinned for reproducible installs
+
+README.md
+
+This documentation
+
+.env.example
+
+Template for required environment variables
+
+.env (local only)
+
+Actual secrets/keys. Should be in .gitignore.
+
+uploads/
+
+Stores generated cover images and uploaded images
+
+Served via: GET /uploads/<filename>
+
+app/
+app/config.py
+
+Loads environment variables using pydantic-settings
+
+Provides a settings object used everywhere
+
+Central place for config like Mongo URI, JWT secret, Gemini keys, CORS origins
+
+app/db.py
+
+Creates MongoDB client using motor
+
+Exposes:
+
+db
+
+users_col
+
+blogs_col
+
+init_indexes() creates required indexes (email unique, blog indexes)
+
+app/deps.py
+
+Auth dependency helpers:
+
+Extract JWT from Authorization: Bearer <token>
+
+Decode token and fetch user from DB
+
+require_user / require_admin guards (admin-only access)
+
+app/schemas.py
+
+All Pydantic request/response models:
+
+Auth models: SignupIn, LoginIn, TokenOut, etc.
+
+Blog models: BlogMeta, FinalBlog, BlogCreateIn, BlogOut, BlogListItem
+
+AI request models: TopicIdeasIn, TitlesIn, IntrosIn, OutlinesIn, ImagePromptsIn, ImageGenerateIn, GenerateBlogIn
+
+Shared output model: OptionsOut (always 5 strings)
+
+app/security.py
+
+Password hashing using Argon2
+
+JWT creation/verification:
+
+create_access_token()
+
+decode_token()
+
+This is where you plug future security improvements (refresh tokens, rotation, etc.)
+
+app/routers/
+app/routers/auth.py
+
+POST /auth/signup
+
+POST /auth/login
+
+Assigns admin role if email matches ADMIN_EMAIL
+
+Returns JWT token and user info
+
+app/routers/ai.py
+
+AI generation endpoints (Gemini + image generation):
+
+POST /ai/ideas → 5 topic ideas
+
+POST /ai/titles → 5 title options
+
+POST /ai/intros → 5 intro options
+
+POST /ai/outlines → 5 outline variants
+
+POST /ai/image-prompts → 5 image prompt options
+
+POST /ai/image-generate → 1 image output (image_url)
+
+POST /ai/blog-generate → final blog markdown + html
+
+app/routers/blogs.py
+
+Blog storage + user blog workflow:
+
+POST /blogs → save final blog to MongoDB
+
+GET /blogs/mine → list saved blogs (for “Saved Blogs” table)
+
+GET /blogs/{id} → fetch a single blog (final blog + markdown + html)
+
+POST /blogs/{id}/request-publish → set blog status to pending
+
+GET /blogs/dashboard/stats → counts for dashboard cards
+
+POST /blogs/upload/image → upload cover image (multipart form-data)
+
+app/routers/admin.py
+
+Admin-only blog moderation:
+
+GET /admin/blogs?status=pending|saved|published|rejected
+
+POST /admin/blogs/{id}/approve
+
+POST /admin/blogs/{id}/reject?feedback=...
+
+app/services/
+app/services/gemini_service.py
+
+Gemini integration for text generation:
+
+gen_topic_ideas()
+
+gen_titles()
+
+gen_intros()
+
+gen_outlines()
+
+gen_image_prompts()
+
+gen_final_blog_markdown()
+
+Enforces “return 5 options” behavior
+
+Central place to modify prompts & model selection
+
+app/services/image_service.py
+
+Image generation integration
+
+Saves the generated image to uploads/
+
+Returns public URL (based on PUBLIC_BASE_URL)
+
+app/services/markdown_service.py
+
+Converts Markdown → HTML safely for preview
+
+Used by /ai/blog-generate
 
 Requirements
 Python
@@ -95,8 +282,6 @@ Setup
 
 From backend/:
 
-PowerShell
-
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -U pip
@@ -105,13 +290,10 @@ python -m pip install -U pip
 pip install -r requirements.txt
 
 3) Create .env
-
-Copy example:
-
 Copy-Item .env.example .env
 
 
-Edit .env and set values.
+Update .env with your keys and settings.
 
 Environment Variables
 
@@ -135,29 +317,23 @@ GEMINI_API_KEY=your_key
 GEMINI_TEXT_MODEL=gemini-2.5-flash
 GEMINI_IMAGE_MODEL=gemini-2.5-flash-image
 
-Admin role rule
+Admin Role Rule
 
 If a user signs up with email equal to ADMIN_EMAIL, they get role admin. Otherwise role is user.
 
 Run the Server
 
-From backend/ (venv activated):
+From backend/:
 
 python -m uvicorn main:app --reload --port 8000
 
 
-Server URL:
+Server: http://127.0.0.1:8000
 
-http://127.0.0.1:8000
-
-Docs:
-
-Swagger UI: http://127.0.0.1:8000/docs
+Swagger docs: http://127.0.0.1:8000/docs
 
 MongoDB Setup
 Option A: Local MongoDB
-
-Start MongoDB (one of these ways):
 
 If running as Windows service:
 
@@ -178,12 +354,12 @@ MONGODB_DB=cms_blog
 
 Authentication (JWT)
 
-All protected endpoints require header:
+All protected endpoints require:
 
 Authorization: Bearer <token>
 
 
-Token is returned from:
+Token comes from:
 
 POST /auth/signup
 
@@ -200,7 +376,7 @@ POST /auth/signup
 
 POST /auth/login
 
-AI (always returns 5 options where applicable)
+AI (returns 5 options where applicable)
 
 POST /ai/ideas
 
@@ -208,37 +384,37 @@ POST /ai/titles
 
 POST /ai/intros
 
-POST /ai/outlines (5 variants; each contains an outline array)
+POST /ai/outlines
 
 POST /ai/image-prompts
 
-POST /ai/image-generate (returns 1 image url)
+POST /ai/image-generate
 
-POST /ai/blog-generate (returns final markdown + html)
+POST /ai/blog-generate
 
 Blogs
 
-POST /blogs (save final blog to MongoDB)
+POST /blogs
 
-GET /blogs/mine (saved blogs list)
+GET /blogs/mine
 
-GET /blogs/{id} (single blog with final blog + meta)
+GET /blogs/{id}
 
-POST /blogs/{id}/request-publish (sets status pending)
+POST /blogs/{id}/request-publish
 
-GET /blogs/dashboard/stats (counts for dashboard cards)
+GET /blogs/dashboard/stats
 
-POST /blogs/upload/image (upload local image file)
+POST /blogs/upload/image
 
-Admin (admin token only)
+Admin (Admin token required)
 
-GET /admin/blogs?status=pending|saved|published|rejected
+GET /admin/blogs?status=...
 
 POST /admin/blogs/{id}/approve
 
 POST /admin/blogs/{id}/reject?feedback=...
 
-Postman Testing (Direct, no environment variables)
+Postman Testing (Direct, No Environment)
 
 Base URL: http://127.0.0.1:8000
 
@@ -310,7 +486,7 @@ POST /ai/intros
 }
 
 
-Pick one intro (markdown).
+Pick one intro markdown.
 
 6) AI Outlines (5 variants)
 
@@ -345,9 +521,6 @@ POST /ai/image-prompts
   "selected_idea": "PASTE_SELECTED_IDEA",
   "title": "PASTE_SELECTED_TITLE"
 }
-
-
-Pick one image prompt.
 
 8) Generate Image (1)
 
@@ -386,13 +559,6 @@ POST /ai/blog-generate
   "outline": ["PASTE", "OUTLINE", "ARRAY"],
   "cover_image_url": "PASTE_IMAGE_URL"
 }
-
-
-Response contains:
-
-markdown
-
-html
 
 10) Save Blog to DB
 
@@ -433,7 +599,7 @@ Body:
 }
 
 
-Copy returned blog_id.
+Copy blog_id.
 
 11) Request Publish
 
@@ -443,7 +609,9 @@ Authorization: Bearer <USER_TOKEN>
 
 12) Admin Approve/Reject
 
-Signup/login with admin email (ADMIN_EMAIL).
+Signup/login with admin email (matches ADMIN_EMAIL).
+
+Admin endpoints:
 
 GET /admin/blogs?status=pending
 
@@ -451,5 +619,5 @@ POST /admin/blogs/<BLOG_ID>/approve
 
 POST /admin/blogs/<BLOG_ID>/reject?feedback=...
 
-Admin requests require:
+Header:
 Authorization: Bearer <ADMIN_TOKEN>
