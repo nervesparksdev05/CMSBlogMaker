@@ -5,7 +5,7 @@ import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
 import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
-import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
+
 
 import FacebookIcon from "../assets/facebook-icon.svg";
 import TwitterIcon from "../assets/twitter-icon.svg";
@@ -53,9 +53,6 @@ export default function GeneratedBlogPage() {
           <div className="px-10 pt-6 pb-10">
             <BackToDashBoardButton />
 
-            <div className="mt-3">
-              <IncreasingDotsInterface />
-            </div>
 
             {/* Main content row */}
             <div className="mt-6 flex gap-6 items-start">

@@ -1,4 +1,6 @@
 // src/pages/ReviewInfoPage.jsx
+import { useNavigate } from "react-router-dom";
+
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
@@ -8,19 +10,23 @@ import ReviewInformationTemplate from "../interface/ReviewInformationTemplate";
 import PreviousButton from "../buttons/PreviousButton";
 
 export default function ReviewInfoPage() {
+  const navigate = useNavigate();
+
   // demo data (replace with your store/context values)
   const blogLanguage = "English";
   const blogTone = "Informative";
   const blogCreativity = "Regular";
-  const blogAbout = "You are a tech blogger who writes informative and engaging content about emerging technologies";
+  const blogAbout =
+    "You are a tech blogger who writes informative and engaging content about emerging technologies";
   const blogKeywords = "Tech, AI, Startups, Learners";
   const blogAudience = "Researchers, Students, Tech Enthusiasts";
   const blogReferences = "www.example.com, www.example2.com, www.example3.com";
-  
+
   const blogTitle = "The AI Revolution: Transforming Society as We Know It";
-  
-  const blogIntro = "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum interdum sit.Lorem ipsum";
-  
+
+  const blogIntro =
+    "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum interdum sit.Lorem ipsum";
+
   const blogOutline = [
     "Introduction to Artificial Intelligence (AI)",
     "What is AI and How Does It Work?",
@@ -35,10 +41,16 @@ export default function ReviewInfoPage() {
     "Government Regulation and Oversight of AI",
     "Conclusion: Embracing the Potential of AI while Addressing",
   ];
-  
+
   const headerImageSrc = ""; // Add your image URL here
 
-  const helperText = "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.";
+  const helperText =
+    "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.";
+
+  const handleGenerate = () => {
+    // ✅ navigate to your generated blog page route
+    navigate("/create-blog/generated"); // change this path if your route is different
+  };
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -76,7 +88,6 @@ export default function ReviewInfoPage() {
               <ReviewInformationTemplate
                 pageTitle="Review Information"
                 helperText={helperText}
-                
                 blogLanguage={blogLanguage}
                 blogTone={blogTone}
                 blogCreativity={blogCreativity}
@@ -85,16 +96,13 @@ export default function ReviewInfoPage() {
                 blogAudience={blogAudience}
                 blogReferences={blogReferences}
                 onEditBlogDetails={() => console.log("Edit blog details")}
-                
                 blogTitle={blogTitle}
                 onEditBlogTitle={() => console.log("Edit blog title")}
-                
                 blogIntro={blogIntro}
                 onEditBlogIntro={() => console.log("Edit blog intro")}
-                
                 blogOutline={blogOutline}
                 onEditBlogOutline={() => console.log("Edit blog outline")}
-          
+                headerImageSrc={headerImageSrc}
               />
             </div>
 
@@ -110,7 +118,7 @@ export default function ReviewInfoPage() {
                   text-[14px] font-semibold
                   hover:opacity-95
                 "
-                onClick={() => console.log('generate blog')}
+                onClick={handleGenerate}
               >
                 Generate Blog
               </button>
