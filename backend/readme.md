@@ -76,8 +76,6 @@ backend/
 
       ---
 
-## 🗂️ File-by-File Explanation
-
 ### 📌 Root
 
 #### `main.py`
@@ -224,18 +222,18 @@ Markdown conversion:
 
 ---
 
-## ⚙️ Setup (Windows PowerShell)
+# ⚙️ Setup (Windows PowerShell)
 
-### 1) Go to backend folder
+#  1) Go to backend folder
 ```powershell
 cd backend
 
-## Create and activate venv
+# Create and activate venv
 ```python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install -U pip
 
-## ENV
+# ENV
 
 ```APP_NAME=CMS Blog API
 ENV=dev
