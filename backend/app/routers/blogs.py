@@ -12,10 +12,11 @@ from core.config import settings
 router = APIRouter()
 
 
-# ---------------- CREATE ----------------
-@router.post("/blog", response_model=dict)  # POST /blogs
-async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
+# ---------------- save ----------------
+@router.post("/blog", response_model=dict)  # POST /blog
+async def save_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
     now = datetime.utcnow()
+
     doc = {
         "owner_id": user["id"],
         "owner_name": user["name"],
@@ -33,9 +34,9 @@ async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
         "updated_at": now,
         "published_at": None,
     }
+
     res = await blogs_col.insert_one(doc)
     return {"blog_id": str(res.inserted_id), "status": "saved"}
-
 
 # ---------------- LIST (MY BLOGS) ----------------
 @router.get("/blog", response_model=dict)  # GET /blogs?page=1&limit=10
