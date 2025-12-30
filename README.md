@@ -218,7 +218,7 @@ backend/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/blog` | Create and save final blog |
+| `POST` | `/blog` | save final blog |
 | `GET` | `/blog` | List current user's blogs |
 | `GET` | `/blogs/stats` | Get blog statistics for dashboard |
 | `POST` | `/blogs/uploads/images` | Upload custom cover image |
