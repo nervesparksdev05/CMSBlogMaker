@@ -1,24 +1,40 @@
 // src/interface/ReviewInformationTemplate.jsx
 import ReviewIcon from "../assets/review-icon.svg";
-import EditIcon from "../assets/edit-icon.svg";
+import PenIcon from "../assets/pen-icon.svg";
 
-function SectionTop({ title, helper, onEdit, editText = "Edit" }) {
+function SectionTop({ title, helper, editText = "change", onEdit }) {
   return (
     <div className="flex items-start justify-between gap-8">
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between">
           <div className="text-[20px] font-semibold text-[#111827]">{title}</div>
-          {typeof onEdit === "function" ? (
-            <button
-              type="button"
-              onClick={onEdit}
-              className="shrink-0 flex items-center gap-2 text-[14px] font-medium text-[#4443E4] hover:opacity-90"
-            >
-            
-              {editText}
-            </button>
-          ) : null}
+
+          {/* ✅ clickable change button */}
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!onEdit}
+            className={[
+              "shrink-0 flex items-center gap-2 text-[14px] font-medium",
+              onEdit
+                ? "text-[#4443E4] hover:opacity-90"
+                : "text-[#9CA3AF] cursor-not-allowed",
+            ].join(" ")}
+            aria-label={`Change ${title}`}
+            title={onEdit ? `Change ${title}` : "No action"}
+          >
+            <img
+              src={PenIcon}
+              alt=""
+              className={[
+                "w-[14px] h-[14px]",
+                onEdit ? "opacity-100" : "opacity-60",
+              ].join(" ")}
+            />
+            {editText}
+          </button>
         </div>
+
         {helper ? (
           <p className="mt-2 text-[13px] leading-[20px] text-[#6B7280] max-w-[980px]">
             {helper}
@@ -66,14 +82,11 @@ export default function ReviewInformationTemplate({
   blogKeywords = "Tech, AI, Startups, Learners",
   blogAudience = "Researchers, Students, Tech Enthusiasts",
   blogReferences = "www.example.com, www.example2.com, www.example3.com",
-  onEditBlogDetails,
 
   blogTitle = "The AI Revolution: Transforming Society as We Know It",
-  onEditBlogTitle,
 
   blogIntro =
     "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum interdum sit.Lorem ipsum",
-  onEditBlogIntro,
 
   blogOutline = [
     "Introduction to Artificial Intelligence (AI)",
@@ -89,10 +102,15 @@ export default function ReviewInformationTemplate({
     "Government Regulation and Oversight of AI",
     "Conclusion: Embracing the Potential of AI while Addressing",
   ],
-  onEditBlogOutline,
 
   headerImageSrc = "",
-  onEditHeaderImage,
+
+  // ✅ NEW: edit handlers (wire these from ReviewInfoPage)
+  onEditBlogDetails,
+  onEditBlogTitle,
+  onEditBlogIntro,
+  onEditBlogOutline,
+  onEditBlogImage,
 }) {
   return (
     <div className="w-full flex justify-center">
@@ -109,17 +127,27 @@ export default function ReviewInformationTemplate({
 
         {/* BLOG DETAILS */}
         <div className="mt-8">
-          <SectionTop title="Blog Details" helper={helperText} onEdit={onEditBlogDetails} />
+          <SectionTop
+            title="Blog Details"
+            helper={helperText}
+            onEdit={onEditBlogDetails} // ✅ /create-blog
+          />
 
           <div className="mt-6 grid grid-cols-3 gap-6">
             <div>
               <Label>Language</Label>
-              <ReadonlyBox value={blogLanguage} className="h-[48px] flex items-center py-0" />
+              <ReadonlyBox
+                value={blogLanguage}
+                className="h-[48px] flex items-center py-0"
+              />
             </div>
 
             <div>
               <Label>Tone of Blog</Label>
-              <ReadonlyBox value={blogTone} className="h-[48px] flex items-center py-0" />
+              <ReadonlyBox
+                value={blogTone}
+                className="h-[48px] flex items-center py-0"
+              />
             </div>
 
             <div>
@@ -138,12 +166,18 @@ export default function ReviewInformationTemplate({
 
           <div className="mt-6">
             <Label>Target Keywords</Label>
-            <ReadonlyBox value={blogKeywords} className="h-[48px] flex items-center py-0" />
+            <ReadonlyBox
+              value={blogKeywords}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
 
           <div className="mt-6">
             <Label>Target Audience</Label>
-            <ReadonlyBox value={blogAudience} className="h-[48px] flex items-center py-0" />
+            <ReadonlyBox
+              value={blogAudience}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
 
           <div className="mt-6">
@@ -157,9 +191,16 @@ export default function ReviewInformationTemplate({
 
         {/* BLOG TITLE */}
         <div className="mt-10 pt-8 border-t border-[#EEF2F7]">
-          <SectionTop title="Blog Title" helper={helperText} onEdit={onEditBlogTitle} />
+          <SectionTop
+            title="Blog Title"
+            helper={helperText}
+            onEdit={onEditBlogTitle} // ✅ /create-blog/title
+          />
           <div className="mt-4">
-            <ReadonlyBox value={blogTitle} className="h-[48px] flex items-center py-0" />
+            <ReadonlyBox
+              value={blogTitle}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
         </div>
 
@@ -168,7 +209,7 @@ export default function ReviewInformationTemplate({
           <SectionTop
             title="Blog Introduction"
             helper={helperText}
-            onEdit={onEditBlogIntro}
+            onEdit={onEditBlogIntro} // ✅ /create-blog/intro
           />
           <div className="mt-4">
             <ReadonlyBox value={blogIntro} className="min-h-[90px]" />
@@ -180,7 +221,7 @@ export default function ReviewInformationTemplate({
           <SectionTop
             title="Blog Outlined"
             helper={helperText}
-            onEdit={onEditBlogOutline}
+            onEdit={onEditBlogOutline} // ✅ /create-blog/outline
           />
 
           <div className="mt-4 w-full rounded-[10px] border border-[#E5E7EB] bg-white px-5 py-4">
@@ -209,7 +250,7 @@ export default function ReviewInformationTemplate({
           <SectionTop
             title="Header Selected Image"
             helper={helperText}
-            onEdit={onEditHeaderImage}
+            onEdit={onEditBlogImage} // ✅ /create-blog/image
           />
 
           <div className="mt-5 flex justify-center">

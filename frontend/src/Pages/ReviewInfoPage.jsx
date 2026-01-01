@@ -48,9 +48,15 @@ export default function ReviewInfoPage() {
     "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.";
 
   const handleGenerate = () => {
-    // ✅ navigate to your generated blog page route
-    navigate("/create-blog/generated"); // change this path if your route is different
+    navigate("/create-blog/generated");
   };
+
+  // ✅ 5 edit navigations
+  const goEditBlogDetails = () => navigate("/create-blog");
+  const goEditBlogTitle = () => navigate("/create-blog/title");
+  const goEditBlogIntro = () => navigate("/create-blog/intro");
+  const goEditBlogOutline = () => navigate("/create-blog/outline");
+  const goEditBlogImage = () => navigate("/create-blog/image");
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -95,14 +101,15 @@ export default function ReviewInfoPage() {
                 blogKeywords={blogKeywords}
                 blogAudience={blogAudience}
                 blogReferences={blogReferences}
-                onEditBlogDetails={() => console.log("Edit blog details")}
+                onEditBlogDetails={goEditBlogDetails}   // ✅ /create-blog
                 blogTitle={blogTitle}
-                onEditBlogTitle={() => console.log("Edit blog title")}
+                onEditBlogTitle={goEditBlogTitle}       // ✅ /create-blog/title
                 blogIntro={blogIntro}
-                onEditBlogIntro={() => console.log("Edit blog intro")}
+                onEditBlogIntro={goEditBlogIntro}       // ✅ /create-blog/intro
                 blogOutline={blogOutline}
-                onEditBlogOutline={() => console.log("Edit blog outline")}
+                onEditBlogOutline={goEditBlogOutline}   // ✅ /create-blog/outline
                 headerImageSrc={headerImageSrc}
+                onEditBlogImage={goEditBlogImage}       // ✅ /create-blog/image  (must exist in template)
               />
             </div>
 

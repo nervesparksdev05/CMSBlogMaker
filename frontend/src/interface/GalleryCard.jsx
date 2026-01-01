@@ -1,17 +1,27 @@
-import { useRef } from "react";
+// GalleryCard.jsx
+import { useEffect, useRef, useState } from "react";
 import GalleryIcon from "../assets/gallery-icon.svg";
 import AiIcon from "../assets/ai-icon.svg";
 
 export default function GalleryCard({
   title = "Gallery",
   images = [], // array of URLs
-  selectedSrc = "", // ✅ selected cover url
-  onSelect, // ✅ (src) => void
+  selectedSrc = "", // selected cover url
+  onSelect, // (src) => void
+  onDelete, // ✅ (src) => void
   onUpload, // (files) => void
   onGenerate, // () => void
   className = "",
 }) {
   const fileRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const [menu, setMenu] = useState({
+    open: false,
+    src: "",
+    x: 0,
+    y: 0,
+  });
 
   const triggerPick = () => fileRef.current?.click();
 
@@ -21,31 +31,59 @@ export default function GalleryCard({
     e.target.value = "";
   };
 
-  const leftThumbs = (images || []).slice(0, 2);
-  const mainImage = (images || [])[2] || (images || [])[0];
+  const openMenuAt = (src, evt) => {
+    const rect = evt.currentTarget.getBoundingClientRect();
+    setMenu({
+      open: true,
+      src,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  };
 
-  const Thumb = ({ src, big = false }) => {
+  const closeMenu = () => setMenu({ open: false, src: "", x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!menu.open) return;
+
+    const onDocDown = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) closeMenu();
+    };
+    const onEsc = (e) => {
+      if (e.key === "Escape") closeMenu();
+    };
+
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [menu.open]);
+
+  const Thumb = ({ src }) => {
     const active = selectedSrc === src;
 
     return (
       <button
         type="button"
-        onClick={() => onSelect?.(src)}
+        onClick={(e) => openMenuAt(src, e)}
         className={[
-          "w-full text-left rounded-[6px] border bg-white overflow-hidden",
+          "w-full text-left rounded-[6px] border bg-white overflow-hidden relative",
           active ? "border-[#4443E4] ring-2 ring-[#4443E4]/25" : "border-[#E5E7EB]",
         ].join(" ")}
-        title="Select as cover"
+        title="Options"
       >
         <img
           src={src}
           alt=""
-          className={[
-            "w-full object-cover",
-            big ? "h-[220px]" : "h-[170px]",
-          ].join(" ")}
+          className="w-full h-[160px] object-cover"
           draggable="false"
         />
+        {/* tiny hint */}
+        <div className="absolute right-2 top-2 bg-white/90 border border-[#E5E7EB] rounded-full w-8 h-8 flex items-center justify-center text-[#111827]">
+          ⋮
+        </div>
       </button>
     );
   };
@@ -126,32 +164,67 @@ export default function GalleryCard({
             </div>
           </div>
         ) : (
-          <div className="flex gap-6">
-            <div className="w-[240px]">
-              <div className="rounded-[8px] border border-[#E5E7EB] bg-white p-2">
-                <div className="grid grid-cols-2 gap-2">
-                  {leftThumbs.map((src, idx) => (
-                    <Thumb key={`${src}-${idx}`} src={src} />
-                  ))}
-                  {leftThumbs.length === 1 ? (
-                    <div className="rounded-[6px] border border-[#E5E7EB] bg-[#F9FAFB] h-[170px]" />
-                  ) : null}
-                </div>
-              </div>
+          <div className="mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {(images || []).map((src, idx) => (
+                <Thumb key={`${src}-${idx}`} src={src} />
+              ))}
             </div>
 
-            <div className="flex-1">
-              <div className="rounded-[8px] border border-[#E5E7EB] bg-white p-2">
-                <Thumb src={mainImage} big />
-              </div>
-
-              <div className="mt-2 text-[12px] text-[#6B7280]">
-                Click an image to select it as the cover.
-              </div>
+            <div className="mt-2 text-[12px] text-[#6B7280]">
+              Click an image to see options: Select or Delete.
             </div>
           </div>
         )}
       </div>
+
+      {/* ✅ Floating Options Menu */}
+      {menu.open ? (
+        <div
+          className="fixed inset-0 z-[9999]"
+          onMouseDown={closeMenu}
+          aria-hidden="true"
+        >
+          <div
+            ref={menuRef}
+            className="
+              fixed z-[10000]
+              w-[180px] rounded-[10px] border border-[#E5E7EB]
+              bg-white shadow-lg overflow-hidden
+            "
+            style={{
+              left: Math.max(12, Math.min(menu.x - 90, window.innerWidth - 12 - 180)),
+              top: Math.max(12, Math.min(menu.y - 20, window.innerHeight - 12 - 96)),
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            role="menu"
+          >
+            <button
+              type="button"
+              className="w-full px-4 py-3 text-left text-[14px] hover:bg-[#F9FAFB]"
+              onClick={() => {
+                onSelect?.(menu.src);
+                closeMenu();
+              }}
+            >
+              Select as cover
+            </button>
+
+            <div className="h-px bg-[#E5E7EB]" />
+
+            <button
+              type="button"
+              className="w-full px-4 py-3 text-left text-[14px] hover:bg-[#FEF2F2] text-[#B91C1C]"
+              onClick={() => {
+                onDelete?.(menu.src);
+                closeMenu();
+              }}
+            >
+              Delete image
+            </button>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

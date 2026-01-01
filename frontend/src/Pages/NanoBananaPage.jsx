@@ -34,6 +34,46 @@ function RatioOption({ label, value, selected, onChange }) {
   );
 }
 
+function PlaceholderCard({ index }) {
+  return (
+    <div className="rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm overflow-hidden">
+      <div className="aspect-[4/3] bg-[#F3F4F6] flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-[13px] font-semibold text-[#111827]">
+            Image Placeholder {index + 1}
+          </div>
+          <div className="mt-1 text-[12px] text-[#6B7280]">
+            Drop image here later
+          </div>
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="text-[13px] font-medium text-[#111827]">Untitled</div>
+        <div className="text-[12px] text-[#6B7280]">Waiting for image...</div>
+      </div>
+    </div>
+  );
+}
+
+function AllImagesPlaceholderSection({ count = 3 }) {
+  const placeholders = Array.from({ length: count });
+
+  return (
+    <div className="mt-10">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {placeholders.map((_, i) => (
+          <PlaceholderCard key={i} index={i} />
+        ))}
+      </div>
+
+      <div className="h-8" />
+    </div>
+  );
+}
+
 export default function NanoBananaPage() {
   const [prompt, setPrompt] = useState(
     `A sleek, futuristic dashboard or data visualization. On the left, a blurry, impressionistic "VIBES" meter with a needle wobbling uncertainly. On the right, a clear, crisp set of digital gauges and graphs showing various metrics (e.g., "Context Recall: 85%", "Faithfulness: 92%"). A green checkmark or "SUCCESS" indicator.`
@@ -42,6 +82,9 @@ export default function NanoBananaPage() {
   const [ratio, setRatio] = useState("1:1");
   const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F2B233");
+
+  // ✅ Show all placeholders toggle
+  const [showAll, setShowAll] = useState(false);
 
   // Reference images upload (page-level previews)
   const fileInputRef = useRef(null);
@@ -319,11 +362,14 @@ export default function NanoBananaPage() {
                 <button
                   type="button"
                   className="text-[14px] font-medium text-[#2563EB] hover:underline"
-                  onClick={() => alert("TODO: Show All")}
+                  onClick={() => setShowAll((v) => !v)}
                 >
-                  Show All
+                  {showAll ? "Hide All" : "Show All"}
                 </button>
               </div>
+
+              {/* ✅ Bottom placeholder area */}
+              {showAll ? <AllImagesPlaceholderSection count={3} /> : null}
             </div>
 
             <div className="h-10" />

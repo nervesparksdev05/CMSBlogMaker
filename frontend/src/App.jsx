@@ -11,13 +11,10 @@ import ReviewInfoPage from "./Pages/ReviewInfoPage.jsx";
 import GeneratedBlogPage from "./Pages/GeneratedBlogPage.jsx";
 import SavedBlogPage from "./Pages/SavedBlogPage.jsx";
 import NanoBananaPage from "./Pages/NanoBananaPage.jsx";
+import PreviewEditedPage from "./Pages/PreviewEditedPage.jsx"; // ✅ add
 
 function GalleryPage() {
-  return (
-    <div className="p-6 text-[#111827]">
-      Gallery page coming soon.
-    </div>
-  );
+  return <div className="p-6 text-[#111827]">Gallery page coming soon.</div>;
 }
 
 export default function App() {
@@ -34,13 +31,16 @@ export default function App() {
         <Route path="/generate-image" element={<NanoBananaPage />} />
         <Route path="/gallery" element={<GalleryPage />} />
 
-        {/* optional: step routes (use if you want direct URLs for steps) */}
+        {/* step routes */}
         <Route path="/create-blog/title" element={<CreateBlogTitlePage />} />
         <Route path="/create-blog/intro" element={<CreateBlogIntroParagraphPage />} />
         <Route path="/create-blog/outline" element={<CreateBlogOutlinePage />} />
         <Route path="/create-blog/image" element={<CreateBlogImageUploadPage />} />
         <Route path="/create-blog/review" element={<ReviewInfoPage />} />
         <Route path="/create-blog/generated" element={<GeneratedBlogPage />} />
+
+        {/* ✅ Preview / Edit page */}
+        <Route path="/preview-edited" element={<PreviewEditedPage />} />
 
         {/* fallback */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

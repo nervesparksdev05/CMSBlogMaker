@@ -11,32 +11,6 @@ const pillClass = (status = "Saved") => {
   return "bg-[#ECFDF5] text-[#065F46] border-[#A7F3D0]";
 };
 
-function SimpleModal({ open, title, onClose, children }) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      <button
-        className="absolute inset-0 bg-black/30"
-        onClick={onClose}
-        aria-label="Close modal overlay"
-      />
-      <div className="relative w-[720px] max-w-[92vw] rounded-[14px] bg-white shadow-xl border border-[#E5E7EB]">
-        <div className="px-6 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
-          <h3 className="text-[16px] font-semibold text-[#111827]">{title}</h3>
-          <button
-            onClick={onClose}
-            className="h-9 px-3 rounded-[10px] border border-[#D1D5DB] text-[14px] hover:bg-[#F9FAFB]"
-          >
-            Close
-          </button>
-        </div>
-        <div className="p-6">{children}</div>
-      </div>
-    </div>
-  );
-}
-
 export default function TemplateTableCard({
   title = "Saved Blogs",
   badge = "5000 Blogs",
@@ -60,10 +34,8 @@ export default function TemplateTableCard({
 
   // row actions
   showDots = true,
-  onDeleteRow, // (row) => void  (optional)
-  onViewDetails, // (row) => void  (optional) if you want custom navigation
-  renderDetails, // (row) => ReactNode (optional) custom modal content
-  detailsTitle = "Blog details",
+  onDeleteRow, // (row) => void
+  onViewDetails, // (row) => void  ✅ use this to navigate to Generated Blog Page
 
   className = "",
 }) {
@@ -105,7 +77,9 @@ export default function TemplateTableCard({
   // selection (only current page)
   const pageIds = useMemo(() => pageRows.map(getRowId), [pageRows, getRowId]);
   const allSelected =
-    selectable && pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    selectable &&
+    pageIds.length > 0 &&
+    pageIds.every((id) => selectedIds.includes(id));
 
   const toggleAll = () => {
     if (!onToggleAll) return;
@@ -117,12 +91,9 @@ export default function TemplateTableCard({
     }
   };
 
-  // 3-dots menu + modal (INSIDE TABLE)
+  // 3-dots menu (NO MODAL anymore)
   const [menu, setMenu] = useState({ open: false, row: null, x: 0, y: 0 });
   const menuRef = useRef(null);
-
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [activeRow, setActiveRow] = useState(null);
 
   const closeMenu = () => setMenu({ open: false, row: null, x: 0, y: 0 });
 
@@ -130,7 +101,6 @@ export default function TemplateTableCard({
     e?.stopPropagation?.();
     const rect = e.currentTarget.getBoundingClientRect();
 
-    // clamp so it doesn't go outside screen
     const width = 180;
     const x = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
     const y = rect.bottom + 8;
@@ -158,61 +128,15 @@ export default function TemplateTableCard({
   }, [menu.open]);
 
   const viewDetails = (row) => {
-    if (onViewDetails) {
-      onViewDetails(row);
-      closeMenu();
-      return;
-    }
-    setActiveRow(row);
-    setDetailsOpen(true);
+    // ✅ redirect to GeneratedBlogPage (handled by parent)
+    onViewDetails?.(row);
     closeMenu();
   };
 
   const deleteItem = (row) => {
-    if (onDeleteRow) onDeleteRow(row);
+    onDeleteRow?.(row);
     closeMenu();
   };
-
-  const defaultDetailsUI = (r) => (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Blog Title</div>
-          <div className="text-[14px] font-semibold text-[#111827]">{r?.blogTitle ?? "-"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Status</div>
-          <div className="text-[14px] font-semibold text-[#111827]">{r?.status ?? "Saved"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Language</div>
-          <div className="text-[14px] text-[#111827]">{r?.language ?? "-"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Tone</div>
-          <div className="text-[14px] text-[#111827]">{r?.tone ?? "-"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Creativity</div>
-          <div className="text-[14px] text-[#111827]">{r?.creativity ?? "-"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB]">
-          <div className="text-[12px] text-[#6B7280]">Created Date</div>
-          <div className="text-[14px] text-[#111827]">{r?.createdDate ?? "-"}</div>
-        </div>
-
-        <div className="p-3 rounded-[12px] border border-[#E5E7EB] col-span-2">
-          <div className="text-[12px] text-[#6B7280]">Created By</div>
-          <div className="text-[14px] text-[#111827]">{r?.createdBy ?? "-"}</div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div
@@ -232,7 +156,9 @@ export default function TemplateTableCard({
               </span>
             ) : null}
           </div>
-          {subtitle ? <p className="mt-1 text-[13px] text-[#6B7280]">{subtitle}</p> : null}
+          {subtitle ? (
+            <p className="mt-1 text-[13px] text-[#6B7280]">{subtitle}</p>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-3">
@@ -265,7 +191,7 @@ export default function TemplateTableCard({
         </div>
       </div>
 
-      {/* ✅ search only (filter removed) */}
+      {/* search */}
       <div className="px-6 pb-4 flex items-center justify-end">
         <div className="relative w-[360px]">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9CA3AF]">
@@ -304,18 +230,28 @@ export default function TemplateTableCard({
                   onClick={toggleAll}
                   className="w-5 h-5 flex items-center justify-center"
                 >
-                  <img src={allSelected ? CheckBox : EmptyCheckbox} alt="" className="w-5 h-5" />
+                  <img
+                    src={allSelected ? CheckBox : EmptyCheckbox}
+                    alt=""
+                    className="w-5 h-5"
+                  />
                 </button>
               </th>
             ) : null}
 
-            {["Blog Title", "Language", "Tone", "Creativity", "Created Date", "Created By", "Status"].map(
-              (h) => (
-                <th key={h} className="px-4 py-4 text-[13px] font-medium text-[#6B7280]">
-                  {h}
-                </th>
-              )
-            )}
+            {[
+              "Blog Title",
+              "Language",
+              "Tone",
+              "Creativity",
+              "Created Date",
+              "Created By",
+              "Status",
+            ].map((h) => (
+              <th key={h} className="px-4 py-4 text-[13px] font-medium text-[#6B7280]">
+                {h}
+              </th>
+            ))}
 
             {showDots ? <th className="w-[56px] px-4 py-4" /> : null}
           </tr>
@@ -335,7 +271,11 @@ export default function TemplateTableCard({
                       onClick={() => onToggleRow?.(id)}
                       className="w-5 h-5 flex items-center justify-center"
                     >
-                      <img src={checked ? CheckBox : EmptyCheckbox} alt="" className="w-5 h-5" />
+                      <img
+                        src={checked ? CheckBox : EmptyCheckbox}
+                        alt=""
+                        className="w-5 h-5"
+                      />
                     </button>
                   </td>
                 ) : null}
@@ -424,7 +364,7 @@ export default function TemplateTableCard({
         <div
           ref={menuRef}
           style={{ left: menu.x, top: menu.y }}
-          className="fixed z-[9998] w-[180px] rounded-[12px] bg-white border border-[#E5E7EB] shadow-lg "
+          className="fixed z-[9998] w-[180px] rounded-[12px] bg-white border border-[#E5E7EB] shadow-lg"
         >
           <button
             onClick={() => viewDetails(menu.row)}
@@ -441,11 +381,6 @@ export default function TemplateTableCard({
           </button>
         </div>
       ) : null}
-
-      {/* details modal */}
-      <SimpleModal open={detailsOpen} title={detailsTitle} onClose={() => setDetailsOpen(false)}>
-        {!activeRow ? null : renderDetails ? renderDetails(activeRow) : defaultDetailsUI(activeRow)}
-      </SimpleModal>
     </div>
   );
 }

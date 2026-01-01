@@ -1,5 +1,6 @@
 // src/SavedBlogPage.jsx
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -8,6 +9,8 @@ import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import TemplateTableCard from "../interface/TemplateTableCard";
 
 export default function SavedBlogPage() {
+  const navigate = useNavigate();
+
   const [rows, setRows] = useState(() => [
     {
       id: 1,
@@ -55,30 +58,40 @@ export default function SavedBlogPage() {
   const [selectedIds, setSelectedIds] = useState([]);
 
   const toggleRow = (id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
   const toggleAll = (nextIds) => setSelectedIds(nextIds);
-
-  const deleteAll = () => {
-    setRows([]);
-    setSelectedIds([]);
-  };
 
   const deleteRow = (row) => {
     setRows((prev) => prev.filter((r) => r.id !== row.id));
     setSelectedIds((prev) => prev.filter((id) => id !== row.id));
   };
 
+  const deleteAll = () => {
+    // ✅ match TemplateTableCard behavior: delete selected if any else delete all
+    if (selectedIds.length) {
+      const sel = new Set(selectedIds);
+      setRows((prev) => prev.filter((r) => !sel.has(r.id)));
+      setSelectedIds([]);
+      return;
+    }
+    setRows([]);
+    setSelectedIds([]);
+  };
+
   const downloadAll = async () => {
     alert("TODO: Call backend to Download All Blogs as PDF");
   };
 
-  const filterClick = () => {
-    alert("TODO: Open filters panel/modal");
-  };
-
   const badgeText = useMemo(() => `${rows.length} Blogs`, [rows.length]);
+
+  const onViewDetails = (row) => {
+    // localStorage.setItem("cms_selected_blog_row", JSON.stringify(row));
+    navigate("/create-blog/generated");
+  };
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -104,7 +117,6 @@ export default function SavedBlogPage() {
               pageSize={7}
               searchValue={query}
               onSearchChange={setQuery}
-              onFilterClick={filterClick}
               onDeleteAll={deleteAll}
               onDownloadAll={downloadAll}
               selectable
@@ -114,8 +126,7 @@ export default function SavedBlogPage() {
               getRowId={(r) => r.id}
               showDots
               onDeleteRow={deleteRow}
-              // If you want custom modal content, pass renderDetails:
-              // renderDetails={(row) => <div>custom UI here</div>}
+              onViewDetails={onViewDetails} // ✅ added
             />
           </div>
         </div>

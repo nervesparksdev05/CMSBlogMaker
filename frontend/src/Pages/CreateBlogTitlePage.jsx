@@ -1,5 +1,6 @@
 // src/screen/CreateBlogTitle.jsx
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom"; // ✅ add
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -14,6 +15,8 @@ import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
 
 export default function CreateBlogTitlePage() {
+  const navigate = useNavigate(); // ✅ add
+
   const [mode, setMode] = useState("ai"); // "ai" | "manual"
 
   // AI list state
@@ -29,7 +32,6 @@ export default function CreateBlogTitlePage() {
   }, [mode, manualTitle, aiTitles, selectedAiIndex]);
 
   const handleGenerate = () => {
-    // replace with your API call
     const demo = [
       "The AI Revolution: Transforming Society as We Know It",
       "AI for Beginners: A Practical Guide to Getting Started",
@@ -39,6 +41,13 @@ export default function CreateBlogTitlePage() {
     ];
     setAiTitles(demo);
     setSelectedAiIndex(0);
+  };
+
+  // ✅ redirect to PreviewEditedPage
+  const handlePreview = () => {
+    // optional: keep title for preview page usage
+    localStorage.setItem("cms_selected_title", selectedTitle || "");
+    navigate("/preview-edited"); // ✅ make sure this route exists in App.jsx
   };
 
   const AiList = (
@@ -104,7 +113,6 @@ export default function CreateBlogTitlePage() {
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
 
-      {/* top title bar */}
       <HeaderBottomBar title="Content Management System" />
 
       <div className="w-full flex">
@@ -132,25 +140,34 @@ export default function CreateBlogTitlePage() {
               ]}
               selectedKey={mode}
               onSelect={(k) => setMode(k)}
-              // these are used only when children is NOT passed (AI empty state)
               centerTitle="Generate Blog Title with AI"
               centerSubtitle="Click on this button to generate title for your blog"
               buttonText="Generate Blog Titles"
               onButtonClick={handleGenerate}
             >
-              {/* ✅ This is what makes it “change” like your 3 screenshots */}
               {mode === "ai" ? (aiTitles.length ? AiList : null) : ManualBox}
             </GeneratorCard>
           </div>
 
-          {/* bottom buttons like screenshot */}
-          <div className="mt-3 flex items-center justify-between">
+          {/* ✅ bottom buttons row: Preview + Next (keeps your Previous too) */}
+          <div className="mt-3 flex items-center gap-3">
             <PreviousButton />
-            <NextButton />
+            <div className="ml-auto flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePreview}
+                className="
+                  h-[40px] px-6 rounded-full
+                  border border-[#D1D5DB] bg-white
+                  text-[14px] font-medium text-[#111827]
+                  hover:bg-[#F9FAFB]
+                "
+              >
+                Preview
+              </button>
+              <NextButton />
+            </div>
           </div>
-
-          {/* debug: selected title */}
-          {/* <pre className="mt-4 text-xs">{selectedTitle}</pre> */}
         </div>
       </div>
     </div>

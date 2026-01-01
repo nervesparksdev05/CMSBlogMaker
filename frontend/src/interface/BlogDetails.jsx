@@ -1,8 +1,6 @@
 // src/pages/BlogDetails.jsx
 import { useState } from "react";
 import BlogTopicIdeaGeneratorModal from "../interface/BlogTopicIdeaGeneratorModal";
-
-// ✅ SVGs imported as URLs (safe in Vite without SVGR)
 import AiIcon from "../assets/bot-icon.svg";
 import DetailIcon from "../assets/detail-icon.svg";
 

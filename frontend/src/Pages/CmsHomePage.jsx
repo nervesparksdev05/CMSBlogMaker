@@ -60,15 +60,14 @@ export default function CmsHomePage() {
     );
   };
 
-  const onToggleAll = (nextIds) => {
-    setSelectedIds(nextIds);
-  };
+  const onToggleAll = (nextIds) => setSelectedIds(nextIds);
 
   const onDeleteRow = (row) => {
     setRows((prev) => prev.filter((r) => r.id !== row.id));
   };
 
   const onDeleteAll = () => {
+    // ✅ TemplateTableCard: "Delete all" should delete selected if any, else all
     if (selectedIds.length) {
       const sel = new Set(selectedIds);
       setRows((prev) => prev.filter((r) => !sel.has(r.id)));
@@ -80,6 +79,7 @@ export default function CmsHomePage() {
   };
 
   const onDownloadAll = () => {
+    // ✅ same as your old CSV download (kept)
     const headers = [
       "blogTitle",
       "language",
@@ -114,6 +114,13 @@ export default function CmsHomePage() {
     URL.revokeObjectURL(url);
   };
 
+  // ✅ redirect from 3-dots → View details
+  const onViewDetails = (row) => {
+    // If you want to store the selected row for GeneratedBlogPage, you can store it in localStorage here.
+    // localStorage.setItem("cms_selected_blog_row", JSON.stringify(row));
+    navigate("/create-blog/generated");
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <div className="sticky top-0 z-50 w-full">
@@ -144,7 +151,9 @@ export default function CmsHomePage() {
                 onToggleRow={onToggleRow}
                 onToggleAll={onToggleAll}
                 getRowId={getRowId}
+                showDots
                 onDeleteRow={onDeleteRow}
+                onViewDetails={onViewDetails} // ✅ added
               />
             </div>
 

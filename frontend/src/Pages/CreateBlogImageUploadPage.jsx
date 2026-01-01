@@ -1,3 +1,4 @@
+// src/Pages/CreateBlogImageUploadPage.jsx
 import { useMemo, useState, useEffect } from "react";
 
 import MainHeader from "../interface/MainHeader";
@@ -71,6 +72,31 @@ export default function CreateBlogImageUploadPage() {
     }));
 
     setRefImages(mapped);
+  };
+
+  // ✅ Delete from gallery
+  const handleDeleteImage = (src) => {
+    setImages((prev) => {
+      const removed = prev.find((x) => x.src === src);
+
+      // ✅ revoke blob URLs to avoid memory leak
+      if (removed?.file && typeof removed.src === "string" && removed.src.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(removed.src);
+        } catch {
+          // ignore
+        }
+      }
+
+      const next = prev.filter((x) => x.src !== src);
+
+      // ✅ if deleted selected, pick next image (or empty)
+      if (selectedCover === src) {
+        setSelectedCover(next[0]?.src || "");
+      }
+
+      return next;
+    });
   };
 
   // ✅ Keep selection valid if images list changes
@@ -175,7 +201,8 @@ export default function CreateBlogImageUploadPage() {
                 title="Gallery"
                 images={images.map((x) => x.src)}
                 selectedSrc={selectedCover}
-                onSelect={setSelectedCover}
+                onSelect={setSelectedCover} // ✅ Select works
+                onDelete={handleDeleteImage} // ✅ Delete works
                 onUpload={(files) => handleUploadFromDevice(files)}
                 onGenerate={() => {
                   setNanoOpen(true);
@@ -188,7 +215,7 @@ export default function CreateBlogImageUploadPage() {
             <div className="mt-3 flex items-center">
               <PreviousButton />
               <div className="ml-auto">
-                <NextButton  />
+                <NextButton disabled={!canProceed} />
               </div>
             </div>
           </div>
