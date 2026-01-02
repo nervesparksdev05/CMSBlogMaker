@@ -1,5 +1,4 @@
-// src/screen/CreateBlogIntroParagraph.jsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -12,31 +11,55 @@ import NextButton from "../buttons/NextButton";
 
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
+import { apiPost } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
 
 export default function CreateBlogIntroParagraphPage() {
-  const [mode, setMode] = useState("ai"); // "ai" | "manual"
-
-  // AI state: empty => show button, after generate => show selectable list
+  const draft = loadDraft();
+  const [mode, setMode] = useState(draft.intro_mode || "ai");
   const [aiIntros, setAiIntros] = useState([]);
   const [selectedAiIndex, setSelectedAiIndex] = useState(0);
-
-  // Manual state
-  const [manualIntro, setManualIntro] = useState("");
+  const [manualIntro, setManualIntro] = useState(draft.intro_md || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedIntro = useMemo(() => {
     if (mode === "manual") return manualIntro;
     return aiIntros[selectedAiIndex] || "";
   }, [mode, manualIntro, aiIntros, selectedAiIndex]);
 
-  const handleGenerate = () => {
-    // replace with your API call
-    const demo = [
-      "Artificial Intelligence is reshaping how we live and work—powering tools that learn from data, automate routine tasks, and unlock new creative possibilities. From personalized recommendations to smarter healthcare, AI is already influencing everyday decisions in subtle but powerful ways.",
-      "In the last decade, AI has moved from research labs into real products, changing industries at a rapid pace. As models become more capable, organizations and individuals are discovering new ways to use AI for productivity, creativity, and innovation—while also navigating new ethical questions.",
-      "Whether you're a student, a professional, or simply curious, understanding AI today is becoming essential. In this blog, we’ll explore what AI is, where it’s being used, and how its evolution may shape the future of society, careers, and technology.",
-    ];
-    setAiIntros(demo);
-    setSelectedAiIndex(0);
+  useEffect(() => {
+    saveDraft({ intro_md: selectedIntro, intro_mode: mode });
+  }, [selectedIntro, mode]);
+
+  const handleGenerate = async () => {
+    const payload = {
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      targeted_audience: draft.targeted_audience || "",
+      reference_links: draft.reference_links || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+      title: draft.title || "",
+    };
+
+    if (!payload.selected_idea || !payload.title) {
+      setError("Please complete blog details and title first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/intros", payload);
+      setAiIntros(data?.options || []);
+      setSelectedAiIndex(0);
+    } catch (err) {
+      setError(err?.message || "Failed to generate introductions.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const AiList = (
@@ -100,6 +123,8 @@ export default function CreateBlogIntroParagraphPage() {
     </div>
   );
 
+  const canNext = selectedIntro.trim().length > 0;
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
@@ -115,7 +140,6 @@ export default function CreateBlogIntroParagraphPage() {
 
           <IncreasingDotsInterface />
 
-          {/* helper text (like screenshot) */}
           <div className="mt-4 text-center text-[11px] text-[#111827] font-medium">
             Let&apos;s now write your blog introduction which will be the beginning of an
             amazing blog post. You will be able to edit it afterwards.
@@ -125,28 +149,29 @@ export default function CreateBlogIntroParagraphPage() {
             <GeneratorCard
               headerTitle="Generate an intro paragraph or write your own"
               options={[
-                { key: "ai", label: "Generate Title with AI" }, // keep label as your screenshot
+                { key: "ai", label: "Generate Title with AI" },
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
               onSelect={setMode}
               centerTitle="Generate Blog Intro with AI"
               centerSubtitle="Click on this button to generate intro for your blog"
-              buttonText="Generate Blog Intro"
+              buttonText={loading ? "Generating..." : "Generate Blog Intro"}
               onButtonClick={handleGenerate}
+              buttonDisabled={loading}
             >
-              {/* same behavior as previous page */}
               {mode === "ai" ? (aiIntros.length ? AiList : null) : ManualBox}
             </GeneratorCard>
           </div>
 
+          {error ? (
+            <div className="mt-3 text-[12px] text-[#DC2626] text-center">{error}</div>
+          ) : null}
+
           <div className="mt-6 flex items-center justify-between">
             <PreviousButton />
-            <NextButton />
+            <NextButton disabled={!canNext} />
           </div>
-
-          {/* debug */}
-          {/* <pre className="mt-4 text-xs">{selectedIntro}</pre> */}
         </div>
       </div>
     </div>

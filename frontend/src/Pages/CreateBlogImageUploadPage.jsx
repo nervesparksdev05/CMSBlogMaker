@@ -1,5 +1,4 @@
-// src/Pages/CreateBlogImageUploadPage.jsx
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -10,27 +9,38 @@ import GalleryCard from "../interface/GalleryCard";
 import NanoBananaImageCard from "../interface/NanoBananaImageCard";
 import PreviousButton from "../buttons/PreviousButton";
 import NextButton from "../buttons/NextButton";
+import { apiPost, apiUpload } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
+
+const aspectMap = {
+  square: "1:1",
+  landscape: "4:3",
+  portrait: "3:4",
+};
+
+const qualityMap = {
+  standard: "medium",
+  high: "high",
+};
 
 export default function CreateBlogImageUploadPage() {
+  const draft = loadDraft();
   const [nanoOpen, setNanoOpen] = useState(false);
 
-  // gallery images shown on page
-  const [images, setImages] = useState([]); // [{id, src, file?}]
-  const [selectedCover, setSelectedCover] = useState(""); // ✅ selected cover src
+  const [images, setImages] = useState([]);
+  const [selectedCover, setSelectedCover] = useState(draft.cover_image_url || "");
 
-  // modal form state
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(draft.image_prompt || "");
   const [aspect, setAspect] = useState("square");
-  const [quality, setQuality] = useState("");
+  const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F4B02A");
 
-  // reference images (inside modal)
-  const [refImages, setRefImages] = useState([]); // [{id, src, file}]
-
-  // modal stages
-  const [stage, setStage] = useState("form"); // "form" | "generating" | "done"
+  const [refImages, setRefImages] = useState([]);
+  const [stage, setStage] = useState("form");
   const [progress, setProgress] = useState(0);
-  const [generatedImages, setGeneratedImages] = useState([]); // [url,url]
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [error, setError] = useState("");
+  const progressTimer = useRef(null);
 
   const helperText = useMemo(
     () =>
@@ -38,68 +48,63 @@ export default function CreateBlogImageUploadPage() {
     []
   );
 
-  const addToGalleryFromFiles = (files) => {
+  useEffect(() => {
+    if (draft.cover_image_url) {
+      setImages([{ id: `saved-${draft.cover_image_url}`, src: draft.cover_image_url }]);
+    }
+  }, []);
+
+  useEffect(() => {
+    saveDraft({ cover_image_url: selectedCover, image_prompt: prompt });
+  }, [selectedCover, prompt]);
+
+  const handleUploadFromDevice = async (files) => {
     const list = Array.from(files || []);
     if (!list.length) return;
+    setError("");
 
-    const mapped = list.map((f) => ({
-      id: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
-      src: URL.createObjectURL(f),
-      file: f,
-    }));
+    try {
+      const uploaded = [];
+      for (const file of list) {
+        const res = await apiUpload("/blogs/uploads/images", file);
+        if (res?.image_url) {
+          uploaded.push({
+            id: `${file.name}-${Date.now()}-${Math.random()}`,
+            src: res.image_url,
+          });
+        }
+      }
 
-    setImages((prev) => {
-      const next = [...mapped, ...prev];
-
-      // ✅ auto-select newest upload
-      const newest = mapped[0]?.src;
-      if (newest) setSelectedCover(newest);
-
-      return next;
-    });
+      if (uploaded.length) {
+        setImages((prev) => [...uploaded, ...prev]);
+        setSelectedCover(uploaded[0].src);
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to upload image.");
+    }
   };
-
-  const handleUploadFromDevice = (files) => addToGalleryFromFiles(files);
 
   const handleUploadReference = (files) => {
     const list = Array.from(files || []);
     if (!list.length) return;
-
     const mapped = list.map((f) => ({
       id: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
       src: URL.createObjectURL(f),
       file: f,
     }));
-
     setRefImages(mapped);
   };
 
-  // ✅ Delete from gallery
   const handleDeleteImage = (src) => {
     setImages((prev) => {
-      const removed = prev.find((x) => x.src === src);
-
-      // ✅ revoke blob URLs to avoid memory leak
-      if (removed?.file && typeof removed.src === "string" && removed.src.startsWith("blob:")) {
-        try {
-          URL.revokeObjectURL(removed.src);
-        } catch {
-          // ignore
-        }
-      }
-
       const next = prev.filter((x) => x.src !== src);
-
-      // ✅ if deleted selected, pick next image (or empty)
       if (selectedCover === src) {
         setSelectedCover(next[0]?.src || "");
       }
-
       return next;
     });
   };
 
-  // ✅ Keep selection valid if images list changes
   useEffect(() => {
     if (!images.length) {
       setSelectedCover("");
@@ -107,40 +112,59 @@ export default function CreateBlogImageUploadPage() {
     }
     const srcs = new Set(images.map((x) => x.src));
     if (!selectedCover || !srcs.has(selectedCover)) {
-      setSelectedCover(images[0].src); // fallback select first
+      setSelectedCover(images[0].src);
     }
   }, [images, selectedCover]);
 
-  // fake progress animation for "Generating..."
   useEffect(() => {
     if (stage !== "generating") return;
-
     setProgress(0);
-    const t = setInterval(() => {
-      setProgress((p) => Math.min(100, p + Math.floor(Math.random() * 7) + 3));
+
+    progressTimer.current = setInterval(() => {
+      setProgress((p) => Math.min(98, p + Math.floor(Math.random() * 7) + 3));
     }, 250);
 
-    return () => clearInterval(t);
+    return () => {
+      if (progressTimer.current) clearInterval(progressTimer.current);
+    };
   }, [stage]);
 
-  // when progress hits 100, move to done and set demo images
-  useEffect(() => {
-    if (stage !== "generating") return;
-    if (progress < 100) return;
-
-    const timeout = setTimeout(() => {
-      setGeneratedImages([
-        "https://picsum.photos/seed/bad/360/520",
-        "https://picsum.photos/seed/good/360/520",
-      ]);
-      setStage("done");
-    }, 400);
-
-    return () => clearTimeout(timeout);
-  }, [stage, progress]);
-
   const handleGenerate = async () => {
-    setStage("generating");
+    const payload = {
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+      title: draft.title || "",
+      prompt,
+      aspect_ratio: aspectMap[aspect] || "4:3",
+      quality: qualityMap[quality] || "medium",
+      primary_color: primaryColor,
+    };
+
+    if (!payload.title || !payload.selected_idea || !payload.prompt) {
+      setError("Please complete details, title, and image prompt first.");
+      return;
+    }
+
+    try {
+      setError("");
+      setStage("generating");
+      const data = await apiPost("/ai/image-generate", payload);
+      const url = data?.image_url;
+      if (!url) throw new Error("Image generation failed.");
+
+      setGeneratedImages([url]);
+      setProgress(100);
+      setStage("done");
+    } catch (err) {
+      setStage("form");
+      setProgress(0);
+      setError(err?.message || "Failed to generate image.");
+    } finally {
+      if (progressTimer.current) clearInterval(progressTimer.current);
+    }
   };
 
   const handleGenerateAnother = () => {
@@ -150,21 +174,16 @@ export default function CreateBlogImageUploadPage() {
   };
 
   const handleDoneSave = () => {
-    // save generated images to gallery
     const mapped = (generatedImages || []).map((src) => ({
       id: `gen-${Date.now()}-${Math.random()}`,
       src,
     }));
 
-    setImages((prev) => {
-      const next = [...mapped, ...prev];
-      // ✅ auto-select newest generated
-      const newest = mapped[0]?.src;
-      if (newest) setSelectedCover(newest);
-      return next;
-    });
+    if (mapped.length) {
+      setImages((prev) => [...mapped, ...prev]);
+      setSelectedCover(mapped[0].src);
+    }
 
-    // close + reset modal
     setNanoOpen(false);
     setStage("form");
     setProgress(0);
@@ -172,7 +191,7 @@ export default function CreateBlogImageUploadPage() {
     setRefImages([]);
   };
 
-  const canProceed = Boolean(selectedCover); // ✅ Next enabled only if selected
+  const canProceed = Boolean(selectedCover);
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -201,8 +220,8 @@ export default function CreateBlogImageUploadPage() {
                 title="Gallery"
                 images={images.map((x) => x.src)}
                 selectedSrc={selectedCover}
-                onSelect={setSelectedCover} // ✅ Select works
-                onDelete={handleDeleteImage} // ✅ Delete works
+                onSelect={setSelectedCover}
+                onDelete={handleDeleteImage}
                 onUpload={(files) => handleUploadFromDevice(files)}
                 onGenerate={() => {
                   setNanoOpen(true);
@@ -211,7 +230,12 @@ export default function CreateBlogImageUploadPage() {
               />
             </div>
 
-            {/* ✅ Nicely aligned footer buttons */}
+            {error ? (
+              <div className="mt-3 text-center text-[12px] text-[#DC2626]">
+                {error}
+              </div>
+            ) : null}
+
             <div className="mt-3 flex items-center">
               <PreviousButton />
               <div className="ml-auto">
@@ -248,6 +272,7 @@ export default function CreateBlogImageUploadPage() {
         onPrimaryColorChange={setPrimaryColor}
         onUploadReference={handleUploadReference}
         onGenerate={handleGenerate}
+        error={error}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-// src/pages/ReviewInfoPage.jsx
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
@@ -8,50 +8,78 @@ import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
 import ReviewInformationTemplate from "../interface/ReviewInformationTemplate";
 import PreviousButton from "../buttons/PreviousButton";
+import { apiPost } from "../lib/api.js";
+import { loadDraft } from "../lib/storage.js";
 
 export default function ReviewInfoPage() {
   const navigate = useNavigate();
+  const draft = loadDraft();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // demo data (replace with your store/context values)
-  const blogLanguage = "English";
-  const blogTone = "Informative";
-  const blogCreativity = "Regular";
-  const blogAbout =
-    "You are a tech blogger who writes informative and engaging content about emerging technologies";
-  const blogKeywords = "Tech, AI, Startups, Learners";
-  const blogAudience = "Researchers, Students, Tech Enthusiasts";
-  const blogReferences = "www.example.com, www.example2.com, www.example3.com";
-
-  const blogTitle = "The AI Revolution: Transforming Society as We Know It";
-
-  const blogIntro =
-    "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum interdum sit.Lorem ipsum";
-
-  const blogOutline = [
-    "Introduction to Artificial Intelligence (AI)",
-    "What is AI and How Does It Work?",
-    "Evolution of AI: From Theory to Reality",
-    "Applications of AI in Society",
-    ["Healthcare", "Manufacturing", "Finance", "Education", "Transportation"],
-    "Benefits and Concerns of AI",
-    "Ethical Implications of AI",
-    "The Future of AI: Predictions and Possibilities",
-    "Challenges and Limitations of AI",
-    "Impact on the Job Market: Will Robots Replace Humans?",
-    "Government Regulation and Oversight of AI",
-    "Conclusion: Embracing the Potential of AI while Addressing",
-  ];
-
-  const headerImageSrc = ""; // Add your image URL here
+  const meta = useMemo(
+    () => ({
+      language: draft.language || "English",
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      targeted_audience: draft.targeted_audience || "",
+      reference_links: draft.reference_links || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+      title: draft.title || "",
+      intro_md: draft.intro_md || "",
+      outline: draft.outline || [],
+      image_prompt: draft.image_prompt || "",
+      cover_image_url: draft.cover_image_url || "",
+    }),
+    [draft]
+  );
 
   const helperText =
-    "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.";
+    "Review the information below. You can jump back to any step to make changes before generating your blog.";
 
-  const handleGenerate = () => {
-    navigate("/create-blog/generated");
+  const handleGenerate = async () => {
+    if (!meta.selected_idea || !meta.title || !meta.intro_md || !meta.outline.length) {
+      setError("Please complete all steps before generating the blog.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const finalBlog = await apiPost("/ai/blog-generate", {
+        tone: meta.tone,
+        creativity: meta.creativity,
+        focus_or_niche: meta.focus_or_niche,
+        targeted_keyword: meta.targeted_keyword,
+        targeted_audience: meta.targeted_audience,
+        reference_links: meta.reference_links,
+        selected_idea: meta.selected_idea,
+        title: meta.title,
+        intro_md: meta.intro_md,
+        outline: meta.outline,
+        cover_image_url: meta.cover_image_url,
+      });
+
+      const saved = await apiPost("/blog", {
+        meta,
+        final_blog: finalBlog,
+      });
+
+      const blogId = saved?.blog_id || "";
+      if (blogId) {
+        localStorage.setItem("cms_last_blog_id", blogId);
+      }
+      navigate(`/create-blog/generated${blogId ? `?id=${blogId}` : ""}`);
+    } catch (err) {
+      setError(err?.message || "Failed to generate blog.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ 5 edit navigations
   const goEditBlogDetails = () => navigate("/create-blog");
   const goEditBlogTitle = () => navigate("/create-blog/title");
   const goEditBlogIntro = () => navigate("/create-blog/intro");
@@ -60,24 +88,18 @@ export default function ReviewInfoPage() {
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
-      {/* ✅ Sticky Main Header */}
       <div className="sticky top-0 z-[60]">
         <MainHeader />
       </div>
 
-      {/* ✅ Sticky Bottom Bar (FULL WIDTH) */}
       <div className="sticky top-[76px] z-[55] w-full">
         <HeaderBottomBar title="Content Management System" />
       </div>
 
-      {/* Body */}
       <div className="w-full flex">
-        {/* Sidebar */}
         <Sidebar />
 
-        {/* Content */}
         <div className="flex-1">
-          {/* Page content */}
           <div className="px-10 pt-6 pb-10">
             <BackToDashBoardButton />
 
@@ -89,31 +111,35 @@ export default function ReviewInfoPage() {
               Verify the information before generating Blog
             </p>
 
-            {/* ✅ Review Information Template */}
             <div className="mt-10 flex justify-center">
               <ReviewInformationTemplate
                 pageTitle="Review Information"
                 helperText={helperText}
-                blogLanguage={blogLanguage}
-                blogTone={blogTone}
-                blogCreativity={blogCreativity}
-                blogAbout={blogAbout}
-                blogKeywords={blogKeywords}
-                blogAudience={blogAudience}
-                blogReferences={blogReferences}
-                onEditBlogDetails={goEditBlogDetails}   // ✅ /create-blog
-                blogTitle={blogTitle}
-                onEditBlogTitle={goEditBlogTitle}       // ✅ /create-blog/title
-                blogIntro={blogIntro}
-                onEditBlogIntro={goEditBlogIntro}       // ✅ /create-blog/intro
-                blogOutline={blogOutline}
-                onEditBlogOutline={goEditBlogOutline}   // ✅ /create-blog/outline
-                headerImageSrc={headerImageSrc}
-                onEditBlogImage={goEditBlogImage}       // ✅ /create-blog/image  (must exist in template)
+                blogLanguage={meta.language}
+                blogTone={meta.tone}
+                blogCreativity={meta.creativity}
+                blogAbout={meta.focus_or_niche}
+                blogKeywords={meta.targeted_keyword}
+                blogAudience={meta.targeted_audience}
+                blogReferences={meta.reference_links}
+                onEditBlogDetails={goEditBlogDetails}
+                blogTitle={meta.title}
+                onEditBlogTitle={goEditBlogTitle}
+                blogIntro={meta.intro_md}
+                onEditBlogIntro={goEditBlogIntro}
+                blogOutline={meta.outline}
+                onEditBlogOutline={goEditBlogOutline}
+                headerImageSrc={meta.cover_image_url}
+                onEditBlogImage={goEditBlogImage}
               />
             </div>
 
-            {/* Footer */}
+            {error ? (
+              <div className="mt-4 text-center text-[12px] text-[#DC2626]">
+                {error}
+              </div>
+            ) : null}
+
             <div className="mt-10 flex items-center justify-between max-w-[980px] mx-auto">
               <PreviousButton />
 
@@ -126,8 +152,9 @@ export default function ReviewInfoPage() {
                   hover:opacity-95
                 "
                 onClick={handleGenerate}
+                disabled={loading}
               >
-                Generate Blog
+                {loading ? "Generating..." : "Generate Blog"}
               </button>
             </div>
           </div>

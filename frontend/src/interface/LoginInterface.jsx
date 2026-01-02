@@ -1,21 +1,28 @@
-// src/interface/LoginInterface.jsx
+import { useState } from "react";
 import GoogleButton from "../buttons/GoogleButton.jsx";
 import AppleButton from "../buttons/AppleButton.jsx";
-import FacebookButton from "../buttons/FaceBookButton.jsx";
+import FacebookButton from "../buttons/FacebookButton.jsx";
 import SimpleHeaderInterface from "./SimpleHeaderInterface.jsx";
 import SimpleFooterInterface from "./SimpleFooterInterface.jsx";
-import NextButton from "../buttons/NextButton.jsx";
+import ContinueButton from "../buttons/ContinueButton.jsx";
 
-const LoginPage = ({ onNext, onPrevious }) => {
+const LoginPage = ({ onSubmit, onToggleMode, loading = false, error = "" }) => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const canSubmit = email.trim().length > 0 && password.trim().length > 0 && !loading;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    onSubmit?.({ email: email.trim(), password });
+  };
+
   return (
     <div className="w-full min-h-screen flex flex-col bg-white">
-      {/* Top logo bar */}
       <SimpleHeaderInterface />
 
-      {/* Center content (slightly compact to match signup and avoid scroll) */}
       <main className="flex-1 flex items-center justify-center">
         <section className="flex flex-col items-center">
-          {/* Title */}
           <h1 className="text-[30px] leading-[36px] font-bold text-[#171A1F] mb-1">
             Welcome back
           </h1>
@@ -23,9 +30,7 @@ const LoginPage = ({ onNext, onPrevious }) => {
             Enter your details to get sign in to your account.
           </p>
 
-          {/* Form area */}
           <div className="w-[515px] flex flex-col gap-3">
-            {/* Email */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[22px] text-[#424856]">
                 Email
@@ -43,10 +48,11 @@ const LoginPage = ({ onNext, onPrevious }) => {
                   outline-none
                 "
                 placeholder="test@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
-            {/* Password */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[22px] text-[#424856]">
                 Password
@@ -63,11 +69,12 @@ const LoginPage = ({ onNext, onPrevious }) => {
                   placeholder:text-[#9CA3AF]
                   outline-none
                 "
-                placeholder="••••••••••••••••"
+                placeholder="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
-            {/* Forgot password */}
             <div className="mt-1">
               <button
                 type="button"
@@ -77,12 +84,20 @@ const LoginPage = ({ onNext, onPrevious }) => {
               </button>
             </div>
 
-            {/* Next button – goes to Home1 via onNext from DashBoard2 */}
-            <div className="mt-2 w-full flex justify-end">
-              <NextButton onClick={onNext} />
+            <div className="mt-2 w-full">
+              <ContinueButton
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                label={loading ? "Signing in..." : "Sign in"}
+              />
             </div>
 
-            {/* Divider */}
+            {error ? (
+              <div className="mt-2 text-[12px] text-[#DC2626] text-center">
+                {error}
+              </div>
+            ) : null}
+
             <div className="flex items-center gap-3 mt-3 mb-1">
               <span className="flex-1 h-px bg-[#E5E7EB]" />
               <span className="text-[12px] text-[#6B7280]">
@@ -91,19 +106,17 @@ const LoginPage = ({ onNext, onPrevious }) => {
               <span className="flex-1 h-px bg-[#E5E7EB]" />
             </div>
 
-            {/* Social buttons */}
             <div className="flex items-center justify-between gap-3 mt-1">
               <GoogleButton />
               <AppleButton />
               <FacebookButton />
             </div>
 
-            {/* Bottom link */}
             <p className="mt-3 text-center text-[12px] text-[#6B7280]">
               Don&apos;t have an account?{" "}
               <button
                 type="button"
-                onClick={onPrevious} // back to signup
+                onClick={onToggleMode}
                 className="text-[#4443E4] font-medium hover:underline"
               >
                 Register Now
@@ -113,7 +126,6 @@ const LoginPage = ({ onNext, onPrevious }) => {
         </section>
       </main>
 
-      {/* Bottom footer */}
       <SimpleFooterInterface />
     </div>
   );

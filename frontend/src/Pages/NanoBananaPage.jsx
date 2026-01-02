@@ -1,14 +1,11 @@
-// src/pages/NanoBananaPage.jsx
 import { useMemo, useRef, useState, useLayoutEffect } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
-
-// ✅ Use Template Card (NOT the modal)
-import NanoBananaTemplateCard from "../interface/NanoBananaImageCard";
-
+import NanoBananaTemplateCard from "../interface/NanoBananaTemplateCard.jsx";
 import GenerateImageIcon from "../assets/generate-image.svg";
+import { apiPost } from "../lib/api.js";
 
 function RatioOption({ label, value, selected, onChange }) {
   return (
@@ -34,59 +31,17 @@ function RatioOption({ label, value, selected, onChange }) {
   );
 }
 
-function PlaceholderCard({ index }) {
-  return (
-    <div className="rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm overflow-hidden">
-      <div className="aspect-[4/3] bg-[#F3F4F6] flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-[13px] font-semibold text-[#111827]">
-            Image Placeholder {index + 1}
-          </div>
-          <div className="mt-1 text-[12px] text-[#6B7280]">
-            Drop image here later
-          </div>
-        </div>
-      </div>
-      <div className="px-4 py-3">
-        <div className="text-[13px] font-medium text-[#111827]">Untitled</div>
-        <div className="text-[12px] text-[#6B7280]">Waiting for image...</div>
-      </div>
-    </div>
-  );
-}
-
-function AllImagesPlaceholderSection({ count = 3 }) {
-  const placeholders = Array.from({ length: count });
-
-  return (
-    <div className="mt-10">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-      </div>
-
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {placeholders.map((_, i) => (
-          <PlaceholderCard key={i} index={i} />
-        ))}
-      </div>
-
-      <div className="h-8" />
-    </div>
-  );
-}
-
 export default function NanoBananaPage() {
   const [prompt, setPrompt] = useState(
-    `A sleek, futuristic dashboard or data visualization. On the left, a blurry, impressionistic "VIBES" meter with a needle wobbling uncertainly. On the right, a clear, crisp set of digital gauges and graphs showing various metrics (e.g., "Context Recall: 85%", "Faithfulness: 92%"). A green checkmark or "SUCCESS" indicator.`
+    "A sleek, futuristic dashboard with clear data gauges and a success checkmark."
   );
-
   const [ratio, setRatio] = useState("1:1");
   const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F2B233");
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  // ✅ Show all placeholders toggle
-  const [showAll, setShowAll] = useState(false);
-
-  // Reference images upload (page-level previews)
   const fileInputRef = useRef(null);
   const [referenceFiles, setReferenceFiles] = useState([]);
   const referencePreviews = useMemo(() => {
@@ -109,23 +64,43 @@ export default function NanoBananaPage() {
     setQuality("standard");
     setPrimaryColor("#F2B233");
     setReferenceFiles([]);
+    setError("");
   };
 
   const onGenerate = async () => {
-    alert("TODO: Call backend to generate image");
+    if (!prompt.trim()) {
+      setError("Please enter a prompt.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/image-generate", {
+        tone: "Formal",
+        creativity: "Regular",
+        focus_or_niche: prompt,
+        targeted_keyword: "",
+        selected_idea: prompt,
+        title: "Generated Image",
+        prompt,
+        aspect_ratio: ratio,
+        quality: quality === "high" ? "high" : "medium",
+        primary_color: primaryColor,
+      });
+      if (data?.image_url) {
+        setGeneratedImages((prev) => [
+          { id: `${Date.now()}-${Math.random()}`, src: data.image_url, title: "Nano Banana" },
+          ...prev,
+        ]);
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to generate image.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Mock previous images (replace with API)
-  const previousImages = useMemo(
-    () => [
-      { id: 1, src: "/images/demo1.png", title: "Bonsai 1" },
-      { id: 2, src: "/images/demo2.png", title: "Bonsai 2" },
-      { id: 3, src: "/images/demo3.png", title: "Portrait" },
-    ],
-    []
-  );
-
-  // Native color picker positioning near widget
   const colorAnchorRef = useRef(null);
   const colorInputRef = useRef(null);
 
@@ -158,18 +133,13 @@ export default function NanoBananaPage() {
 
         <div className="flex-1">
           <div className="px-8 py-7">
-            {/* Hero */}
             <h1 className="text-[38px] leading-[42px] font-bold text-[#111827]">
               Welcome to Image Generation with Nano Banana
             </h1>
             <p className="mt-3 max-w-[980px] text-[14px] font-semibold leading-[22px] text-[#6B7280]">
-              We are excited to introduce you to Nano Banana, our state-of-the-art image generation
-              model. Whether you are looking to visualize a brand new concept, edit an existing
-              image, or experiment with complex artistic styles, Nano Banana offers a high-fidelity,
-              intuitive experience.
+              Generate images based on a prompt. This demo uses the same AI backend as the blog flow.
             </p>
 
-            {/* Generate Card */}
             <div className="mt-6 w-full rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm">
               <div className="px-7 py-6 flex items-start justify-between gap-6">
                 <div className="flex items-start gap-4">
@@ -211,7 +181,6 @@ export default function NanoBananaPage() {
               </div>
 
               <div className="px-7 pb-7">
-                {/* Prompt */}
                 <div>
                   <div className="text-[13px] font-medium text-[#111827]">
                     Image Prompt <span className="text-[#DC2626]">*</span>
@@ -225,7 +194,6 @@ export default function NanoBananaPage() {
                   />
                 </div>
 
-                {/* Aspect Ratio */}
                 <div className="mt-6">
                   <div className="text-[13px] font-medium text-[#111827]">
                     Aspect Ratio <span className="text-[#DC2626]">*</span>
@@ -253,10 +221,9 @@ export default function NanoBananaPage() {
                   </div>
                 </div>
 
-                {/* Image Quantity + Primary color row */}
                 <div className="mt-6 flex items-end justify-between gap-6 flex-wrap">
                   <div className="min-w-[320px]">
-                    <div className="text-[13px] font-medium text-[#111827]">Image Quantity</div>
+                    <div className="text-[13px] font-medium text-[#111827]">Image Quality</div>
                     <select
                       value={quality}
                       onChange={(e) => setQuality(e.target.value)}
@@ -267,7 +234,6 @@ export default function NanoBananaPage() {
                     </select>
                   </div>
 
-                  {/* Color */}
                   <div ref={colorAnchorRef} className="flex items-end gap-4 relative">
                     <div>
                       <div className="text-[13px] font-medium text-[#111827]">Primary color</div>
@@ -304,7 +270,6 @@ export default function NanoBananaPage() {
                   </div>
                 </div>
 
-                {/* Reference previews + buttons */}
                 <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
                   <div className="flex items-center gap-2">
                     {referencePreviews.slice(0, 4).map((p) => (
@@ -337,39 +302,36 @@ export default function NanoBananaPage() {
                     <button
                       type="button"
                       onClick={onGenerate}
-                      className="h-[44px] px-7 rounded-[999px] bg-[#4443E4] text-white text-[14px] font-medium hover:opacity-95"
+                      disabled={loading}
+                      className="h-[44px] px-7 rounded-[999px] bg-[#4443E4] text-white text-[14px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      Generate Image
+                      {loading ? "Generating..." : "Generate Image"}
                     </button>
                   </div>
                 </div>
+
+                {error ? (
+                  <div className="mt-3 text-[12px] text-[#DC2626] text-right">{error}</div>
+                ) : null}
               </div>
             </div>
 
-            {/* Previous generated Images */}
             <div className="mt-10">
               <h2 className="text-[22px] font-semibold text-[#111827]">
                 Previous generated Images
               </h2>
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {previousImages.map((img) => (
-                  <NanoBananaTemplateCard key={img.id} image={img} />
-                ))}
+                {generatedImages.length ? (
+                  generatedImages.map((img) => (
+                    <NanoBananaTemplateCard key={img.id} image={img} />
+                  ))
+                ) : (
+                  <div className="text-[13px] text-[#6B7280]">
+                    No images generated yet.
+                  </div>
+                )}
               </div>
-
-              <div className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  className="text-[14px] font-medium text-[#2563EB] hover:underline"
-                  onClick={() => setShowAll((v) => !v)}
-                >
-                  {showAll ? "Hide All" : "Show All"}
-                </button>
-              </div>
-
-              {/* ✅ Bottom placeholder area */}
-              {showAll ? <AllImagesPlaceholderSection count={3} /> : null}
             </div>
 
             <div className="h-10" />

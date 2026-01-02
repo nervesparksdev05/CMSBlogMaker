@@ -1,6 +1,6 @@
-// src/App.jsx
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 
+import AuthPage from "./Pages/AuthPage.jsx";
 import CmsHomePage from "./Pages/CmsHomePage.jsx";
 import CreateBlogPage from "./Pages/CreateBlogPage.jsx";
 import CreateBlogTitlePage from "./Pages/CreateBlogTitlePage.jsx";
@@ -11,39 +11,48 @@ import ReviewInfoPage from "./Pages/ReviewInfoPage.jsx";
 import GeneratedBlogPage from "./Pages/GeneratedBlogPage.jsx";
 import SavedBlogPage from "./Pages/SavedBlogPage.jsx";
 import NanoBananaPage from "./Pages/NanoBananaPage.jsx";
-import PreviewEditedPage from "./Pages/PreviewEditedPage.jsx"; // ✅ add
+import PreviewEditedPage from "./Pages/PreviewEditedPage.jsx";
+import { getStoredAuth } from "./lib/api.js";
 
 function GalleryPage() {
   return <div className="p-6 text-[#111827]">Gallery page coming soon.</div>;
 }
 
+function RequireAuth({ children }) {
+  const location = useLocation();
+  const auth = getStoredAuth();
+  if (!auth?.access_token) {
+    return <Navigate to="/auth" replace state={{ from: location.pathname }} />;
+  }
+  return children;
+}
+
 export default function App() {
+  const isAuthed = Boolean(getStoredAuth()?.access_token);
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* default */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<Navigate to={isAuthed ? "/dashboard" : "/auth"} replace />} />
 
-        {/* sidebar routes */}
-        <Route path="/dashboard" element={<CmsHomePage />} />
-        <Route path="/create-blog" element={<CreateBlogPage />} />
-        <Route path="/saved-blogs" element={<SavedBlogPage />} />
-        <Route path="/generate-image" element={<NanoBananaPage />} />
-        <Route path="/gallery" element={<GalleryPage />} />
+        <Route path="/auth" element={<AuthPage />} />
 
-        {/* step routes */}
-        <Route path="/create-blog/title" element={<CreateBlogTitlePage />} />
-        <Route path="/create-blog/intro" element={<CreateBlogIntroParagraphPage />} />
-        <Route path="/create-blog/outline" element={<CreateBlogOutlinePage />} />
-        <Route path="/create-blog/image" element={<CreateBlogImageUploadPage />} />
-        <Route path="/create-blog/review" element={<ReviewInfoPage />} />
-        <Route path="/create-blog/generated" element={<GeneratedBlogPage />} />
+        <Route path="/dashboard" element={<RequireAuth><CmsHomePage /></RequireAuth>} />
+        <Route path="/create-blog" element={<RequireAuth><CreateBlogPage /></RequireAuth>} />
+        <Route path="/saved-blogs" element={<RequireAuth><SavedBlogPage /></RequireAuth>} />
+        <Route path="/generate-image" element={<RequireAuth><NanoBananaPage /></RequireAuth>} />
+        <Route path="/gallery" element={<RequireAuth><GalleryPage /></RequireAuth>} />
 
-        {/* ✅ Preview / Edit page */}
-        <Route path="/preview-edited" element={<PreviewEditedPage />} />
+        <Route path="/create-blog/title" element={<RequireAuth><CreateBlogTitlePage /></RequireAuth>} />
+        <Route path="/create-blog/intro" element={<RequireAuth><CreateBlogIntroParagraphPage /></RequireAuth>} />
+        <Route path="/create-blog/outline" element={<RequireAuth><CreateBlogOutlinePage /></RequireAuth>} />
+        <Route path="/create-blog/image" element={<RequireAuth><CreateBlogImageUploadPage /></RequireAuth>} />
+        <Route path="/create-blog/review" element={<RequireAuth><ReviewInfoPage /></RequireAuth>} />
+        <Route path="/create-blog/generated" element={<RequireAuth><GeneratedBlogPage /></RequireAuth>} />
 
-        {/* fallback */}
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/preview-edited" element={<RequireAuth><PreviewEditedPage /></RequireAuth>} />
+
+        <Route path="*" element={<Navigate to={isAuthed ? "/dashboard" : "/auth"} replace />} />
       </Routes>
     </BrowserRouter>
   );

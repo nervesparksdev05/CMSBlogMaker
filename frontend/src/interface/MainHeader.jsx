@@ -1,6 +1,6 @@
 // src/interface/MainHeader.jsx
 import NodaIcon from "../assets/noda-icon.svg";
-import HeaderRightTop from "./HeaderRightTopInterface.js";
+import HeaderRightTop from "./HeaderRightTopInterface.jsx";
 import AlarmIcon from "../assets/alarm-icon.svg";
 import FemaleIcon from "../assets/female-icon.svg";
 

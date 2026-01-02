@@ -1,5 +1,4 @@
-// src/SavedBlogPage.jsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
@@ -7,55 +6,49 @@ import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
 import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import TemplateTableCard from "../interface/TemplateTableCard";
+import { apiGet, apiRequest } from "../lib/api.js";
+
+const formatDate = (value) => {
+  try {
+    const d = new Date(value);
+    return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return "";
+  }
+};
 
 export default function SavedBlogPage() {
   const navigate = useNavigate();
-
-  const [rows, setRows] = useState(() => [
-    {
-      id: 1,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Informative",
-      creativity: "Regular",
-      createdDate: "22 Jan 2022",
-      createdBy: "Admin",
-      status: "Saved",
-    },
-    {
-      id: 2,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Informative",
-      creativity: "Regular",
-      createdDate: "22 Jan 2022",
-      createdBy: "Admin",
-      status: "Saved",
-    },
-    {
-      id: 3,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Formal",
-      creativity: "Regular",
-      createdDate: "20 Jan 2022",
-      createdBy: "Admin",
-      status: "Pending",
-    },
-    {
-      id: 4,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Serious",
-      creativity: "High",
-      createdDate: "18 Jan 2022",
-      createdBy: "Admin",
-      status: "Published",
-    },
-  ]);
-
+  const [rows, setRows] = useState([]);
   const [query, setQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const list = await apiGet("/blog?page=1&limit=50");
+        const items = (list?.items || []).map((item) => ({
+          id: item.id,
+          blogTitle: item.title,
+          language: item.language || "English",
+          tone: item.tone || "",
+          creativity: item.creativity || "",
+          createdDate: formatDate(item.created_at),
+          createdBy: item.created_by,
+          status: item.status,
+        }));
+        setRows(items);
+      } catch {
+        setRows([]);
+      }
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    const ids = new Set(rows.map((r) => r.id));
+    setSelectedIds((prev) => prev.filter((id) => ids.has(id)));
+  }, [rows]);
 
   const toggleRow = (id) => {
     setSelectedIds((prev) =>
@@ -65,32 +58,67 @@ export default function SavedBlogPage() {
 
   const toggleAll = (nextIds) => setSelectedIds(nextIds);
 
-  const deleteRow = (row) => {
-    setRows((prev) => prev.filter((r) => r.id !== row.id));
-    setSelectedIds((prev) => prev.filter((id) => id !== row.id));
+  const deleteRow = async (row) => {
+    try {
+      await apiRequest(`/blogs/${row.id}`, { method: "DELETE" });
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch {
+      // ignore
+    }
   };
 
-  const deleteAll = () => {
-    // ✅ match TemplateTableCard behavior: delete selected if any else delete all
-    if (selectedIds.length) {
-      const sel = new Set(selectedIds);
-      setRows((prev) => prev.filter((r) => !sel.has(r.id)));
-      setSelectedIds([]);
-      return;
+  const deleteAll = async () => {
+    const ids = selectedIds.length ? selectedIds : rows.map((r) => r.id);
+    for (const id of ids) {
+      try {
+        await apiRequest(`/blogs/${id}`, { method: "DELETE" });
+      } catch {
+        // ignore
+      }
     }
-    setRows([]);
+    setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
     setSelectedIds([]);
   };
 
   const downloadAll = async () => {
-    alert("TODO: Call backend to Download All Blogs as PDF");
+    const headers = [
+      "blogTitle",
+      "language",
+      "tone",
+      "creativity",
+      "createdDate",
+      "createdBy",
+      "status",
+    ];
+
+    const escapeCsv = (v) => {
+      const s = String(v ?? "");
+      if (/[\",\\n]/.test(s)) return `\"${s.replaceAll('\"', '\"\"')}\"`;
+      return s;
+    };
+
+    const csv = [
+      headers.join(","),
+      ...rows.map((r) => headers.map((h) => escapeCsv(r[h])).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "blogs.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    URL.revokeObjectURL(url);
   };
 
   const badgeText = useMemo(() => `${rows.length} Blogs`, [rows.length]);
 
   const onViewDetails = (row) => {
-    // localStorage.setItem("cms_selected_blog_row", JSON.stringify(row));
-    navigate("/create-blog/generated");
+    navigate(`/create-blog/generated?id=${row.id}`);
   };
 
   return (
@@ -126,7 +154,7 @@ export default function SavedBlogPage() {
               getRowId={(r) => r.id}
               showDots
               onDeleteRow={deleteRow}
-              onViewDetails={onViewDetails} // ✅ added
+              onViewDetails={onViewDetails}
             />
           </div>
         </div>

@@ -57,6 +57,9 @@ async def list_my_blogs(
                 "id": str(b["_id"]),
                 "title": (b.get("meta") or {}).get("title", "")
                 or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "language": (b.get("meta") or {}).get("language", "English"),
+                "tone": (b.get("meta") or {}).get("tone", ""),
+                "creativity": (b.get("meta") or {}).get("creativity", ""),
                 "created_by": b.get("owner_name", ""),
                 "created_at": b.get("created_at"),
                 "status": b.get("status", "saved"),
@@ -113,6 +116,19 @@ async def get_blog(blog_id: str, user=Depends(get_current_user)):
     b["id"] = str(b["_id"])
     b.pop("_id", None)
     return b
+
+
+# ---------------- DELETE BLOG ----------------
+@router.delete("/blogs/{blog_id}", response_model=dict)
+async def delete_blog(blog_id: str, user=Depends(get_current_user)):
+    b = await blogs_col.find_one({"_id": oid(blog_id)})
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b["owner_id"] != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    await blogs_col.delete_one({"_id": oid(blog_id)})
+    return {"ok": True}
 
 
 # ---------------- PUBLISH REQUEST ----------------

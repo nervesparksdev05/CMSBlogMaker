@@ -9,7 +9,7 @@ from app.models.schemas import SignupIn, LoginIn, TokenOut
 
 from core.verify import hash_password, verify_password, create_access_token
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter()
 
 
 @router.post("/signup", response_model=TokenOut)

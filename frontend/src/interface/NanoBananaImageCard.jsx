@@ -79,6 +79,7 @@ export default function NanoBananaImageCard({
   onUploadReference,
   onRemoveReference,
   onGenerate,
+  error = "",
 }) {
   const fileRef = useRef(null);
 
@@ -410,6 +411,12 @@ export default function NanoBananaImageCard({
                   Generate Image
                 </button>
               </div>
+
+              {error ? (
+                <div className="mt-3 text-[12px] text-[#DC2626] text-right">
+                  {error}
+                </div>
+              ) : null}
             </>
           ) : null}
         </div>

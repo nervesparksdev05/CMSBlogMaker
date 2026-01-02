@@ -1,5 +1,4 @@
-// src/screen/CreateBlogOutline.jsx
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -12,37 +11,72 @@ import NextButton from "../buttons/NextButton";
 
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
+import { apiPost } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
+
+function parseOutline(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^[\-\*\d\.\)\s]+/, "").trim())
+    .filter(Boolean);
+}
 
 export default function CreateBlogOutlinePage() {
-  const [mode, setMode] = useState("ai"); // "ai" | "manual"
-
-  // AI state
+  const draft = loadDraft();
+  const [mode, setMode] = useState(draft.outline_mode || "ai");
   const [aiOutlines, setAiOutlines] = useState([]);
   const [selectedAiIndex, setSelectedAiIndex] = useState(0);
-
-  // Manual state (multi-line)
-  const [manualOutline, setManualOutline] = useState("");
+  const [manualOutline, setManualOutline] = useState(
+    Array.isArray(draft.outline) ? draft.outline.join("\n") : ""
+  );
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedOutline = useMemo(() => {
-    if (mode === "manual") return manualOutline;
-    return aiOutlines[selectedAiIndex] || "";
+    if (mode === "manual") return parseOutline(manualOutline);
+    return aiOutlines[selectedAiIndex] || [];
   }, [mode, manualOutline, aiOutlines, selectedAiIndex]);
 
-  const handleGenerate = () => {
-    // replace with your API call
-    const demo = [
-      "• Introduction\n• What is AI?\n• How AI Works (Data + Models)\n• Real-world Applications\n• Benefits and Risks\n• Ethical Considerations\n• Future of AI\n• Conclusion",
-      "• Hook + Context\n• History of AI (brief)\n• Core Concepts (ML, DL)\n• Use Cases by Industry\n• Challenges (bias, privacy)\n• Practical Tips to Get Started\n• Summary + CTA",
-      "• Opening Story\n• Definitions + Key Terms\n• Why AI Matters Today\n• AI in Everyday Life\n• AI in Business\n• Common Misconceptions\n• What’s Next\n• Wrap-up",
-    ];
-    setAiOutlines(demo);
-    setSelectedAiIndex(0);
+  useEffect(() => {
+    saveDraft({ outline: selectedOutline, outline_mode: mode });
+  }, [selectedOutline, mode]);
+
+  const handleGenerate = async () => {
+    const payload = {
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      targeted_audience: draft.targeted_audience || "",
+      reference_links: draft.reference_links || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+      title: draft.title || "",
+      intro_md: draft.intro_md || "",
+    };
+
+    if (!payload.selected_idea || !payload.title || !payload.intro_md) {
+      setError("Please complete blog details, title, and intro first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/outlines", payload);
+      const options = (data?.options || []).map((o) => o.outline || []);
+      setAiOutlines(options);
+      setSelectedAiIndex(0);
+    } catch (err) {
+      setError(err?.message || "Failed to generate outlines.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const AiList = (
     <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
       <div className="max-h-[210px] overflow-auto p-3 space-y-2">
-        {aiOutlines.map((t, idx) => {
+        {aiOutlines.map((outline, idx) => {
           const active = idx === selectedAiIndex;
           return (
             <button
@@ -65,7 +99,7 @@ export default function CreateBlogOutlinePage() {
                 className="w-[18px] h-[18px] mt-[2px]"
               />
               <span className="text-[13px] leading-[18px] text-[#111827] whitespace-pre-line">
-                {t}
+                {(outline || []).join("\n")}
               </span>
             </button>
           );
@@ -100,6 +134,8 @@ export default function CreateBlogOutlinePage() {
     </div>
   );
 
+  const canNext = selectedOutline.length > 0;
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
@@ -123,27 +159,29 @@ export default function CreateBlogOutlinePage() {
             <GeneratorCard
               headerTitle="Generate an outline (subheadings) for your post"
               options={[
-                { key: "ai", label: "Generate Title with AI" }, // keep label like screenshot
+                { key: "ai", label: "Generate Title with AI" },
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
               onSelect={setMode}
               centerTitle="Generate Blog Outline with AI"
               centerSubtitle="Click on this button to generate outline for your blog"
-              buttonText="Generate Blog outline"
+              buttonText={loading ? "Generating..." : "Generate Blog outline"}
               onButtonClick={handleGenerate}
+              buttonDisabled={loading}
             >
               {mode === "ai" ? (aiOutlines.length ? AiList : null) : ManualBox}
             </GeneratorCard>
           </div>
 
+          {error ? (
+            <div className="mt-3 text-[12px] text-[#DC2626] text-center">{error}</div>
+          ) : null}
+
           <div className="mt-6 flex items-center justify-between">
             <PreviousButton />
-            <NextButton />
+            <NextButton disabled={!canNext} />
           </div>
-
-          {/* debug */}
-          {/* <pre className="mt-4 text-xs whitespace-pre-wrap">{selectedOutline}</pre> */}
         </div>
       </div>
     </div>

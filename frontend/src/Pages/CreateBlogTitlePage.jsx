@@ -1,6 +1,5 @@
-// src/screen/CreateBlogTitle.jsx
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom"; // ✅ add
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -13,41 +12,61 @@ import NextButton from "../buttons/NextButton";
 
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
+import { apiPost } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
 
 export default function CreateBlogTitlePage() {
-  const navigate = useNavigate(); // ✅ add
+  const navigate = useNavigate();
+  const draft = loadDraft();
 
-  const [mode, setMode] = useState("ai"); // "ai" | "manual"
-
-  // AI list state
-  const [aiTitles, setAiTitles] = useState([]); // [] => empty state, otherwise list view
+  const [mode, setMode] = useState(draft.title_mode || "ai");
+  const [aiTitles, setAiTitles] = useState([]);
   const [selectedAiIndex, setSelectedAiIndex] = useState(0);
-
-  // Manual state
-  const [manualTitle, setManualTitle] = useState("");
+  const [manualTitle, setManualTitle] = useState(draft.title || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedTitle = useMemo(() => {
     if (mode === "manual") return manualTitle;
     return aiTitles[selectedAiIndex] || "";
   }, [mode, manualTitle, aiTitles, selectedAiIndex]);
 
-  const handleGenerate = () => {
-    const demo = [
-      "The AI Revolution: Transforming Society as We Know It",
-      "AI for Beginners: A Practical Guide to Getting Started",
-      "How Generative AI Is Changing Content Creation",
-      "Top 10 AI Tools Every Creator Should Try in 2025",
-      "Future of Work: Will AI Replace Humans?",
-    ];
-    setAiTitles(demo);
-    setSelectedAiIndex(0);
+  useEffect(() => {
+    saveDraft({ title: selectedTitle, title_mode: mode });
+  }, [selectedTitle, mode]);
+
+  const handleGenerate = async () => {
+    const payload = {
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      targeted_audience: draft.targeted_audience || "",
+      reference_links: draft.reference_links || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+    };
+
+    if (!payload.selected_idea) {
+      setError("Please complete blog details first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/titles", payload);
+      setAiTitles(data?.options || []);
+      setSelectedAiIndex(0);
+    } catch (err) {
+      setError(err?.message || "Failed to generate titles.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // ✅ redirect to PreviewEditedPage
   const handlePreview = () => {
-    // optional: keep title for preview page usage
     localStorage.setItem("cms_selected_title", selectedTitle || "");
-    navigate("/preview-edited"); // ✅ make sure this route exists in App.jsx
+    navigate("/preview-edited");
   };
 
   const AiList = (
@@ -109,6 +128,8 @@ export default function CreateBlogTitlePage() {
     </div>
   );
 
+  const canNext = selectedTitle.trim().length > 0;
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
@@ -142,14 +163,18 @@ export default function CreateBlogTitlePage() {
               onSelect={(k) => setMode(k)}
               centerTitle="Generate Blog Title with AI"
               centerSubtitle="Click on this button to generate title for your blog"
-              buttonText="Generate Blog Titles"
+              buttonText={loading ? "Generating..." : "Generate Blog Titles"}
               onButtonClick={handleGenerate}
+              buttonDisabled={loading}
             >
               {mode === "ai" ? (aiTitles.length ? AiList : null) : ManualBox}
             </GeneratorCard>
           </div>
 
-          {/* ✅ bottom buttons row: Preview + Next (keeps your Previous too) */}
+          {error ? (
+            <div className="mt-3 text-[12px] text-[#DC2626] text-center">{error}</div>
+          ) : null}
+
           <div className="mt-3 flex items-center gap-3">
             <PreviousButton />
             <div className="ml-auto flex items-center gap-3">
@@ -165,7 +190,7 @@ export default function CreateBlogTitlePage() {
               >
                 Preview
               </button>
-              <NextButton />
+              <NextButton disabled={!canNext} />
             </div>
           </div>
         </div>
