@@ -6,6 +6,7 @@ client = AsyncIOMotorClient(settings.MONGODB_URI)
 db = client[settings.MONGODB_DB]
 users_col = db["users"]
 blogs_col = db["blogs"]
+images_col = db["images"]
 
 async def init_indexes():
     # users
@@ -14,4 +15,7 @@ async def init_indexes():
     # blogs
     await blogs_col.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
     await blogs_col.create_index([("status", ASCENDING), ("created_at", DESCENDING)])
+
+    # images
+    await images_col.create_index([("owner_id", ASCENDING), ("created_at", DESCENDING)])
     

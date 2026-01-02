@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.schemas import (
     TopicIdeasIn, TitlesIn, ImagePromptsIn, IntrosIn, OutlinesIn, ImageGenerateIn, ImageOut,
     GenerateBlogIn, OptionsOut, FinalBlog, BlogRender, BlogSection
@@ -9,6 +11,8 @@ from app.services.gemini_service import (
 )
 from app.services.image_service import generate_cover_image
 from app.services.markdown_service import markdown_to_html
+from app.models.db import images_col
+from core.deps import get_current_user
 
 router = APIRouter()
 
@@ -86,9 +90,19 @@ async def image_prompts(payload: ImagePromptsIn):
 
 
 @router.post("/image-generate", response_model=ImageOut)
-async def image_generate(payload: ImageGenerateIn):
+async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user)):
     try:
-        return await generate_cover_image(payload.model_dump())
+        result = await generate_cover_image(payload.model_dump())
+        await images_col.insert_one(
+            {
+                "owner_id": user["id"],
+                "owner_name": user.get("name", ""),
+                "image_url": result.get("image_url", ""),
+                "meta": result.get("meta", {}),
+                "created_at": datetime.utcnow(),
+            }
+        )
+        return result
     except Exception as e:
         _raise_ai_error(e)
 

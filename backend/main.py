@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
 from app.models.db import init_indexes
-from app.routers import auth, ai, blogs, admin
+from app.routers import auth, ai, blogs, admin, images
 
 
 @asynccontextmanager
@@ -37,4 +37,5 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(ai.router, prefix="/ai", tags=["ai"])
 app.include_router(blogs.router, tags=["blogs"])
+app.include_router(images.router, tags=["images"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])

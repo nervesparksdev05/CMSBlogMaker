@@ -24,6 +24,8 @@ export default function TemplateTableCard({
 
   onDeleteAll,
   onDownloadAll,
+  downloadAllLabel = "Download All Blog as PDF",
+  downloadAllDisabled = false,
 
   // selection
   selectable = true,
@@ -173,7 +175,11 @@ export default function TemplateTableCard({
           <button
             type="button"
             onClick={onDownloadAll}
-            className="h-[40px] px-6 rounded-[10px] bg-[#4443E4] text-white text-[14px] font-medium hover:opacity-95 flex items-center gap-2"
+            disabled={downloadAllDisabled}
+            className={[
+              "h-[40px] px-6 rounded-[10px] bg-[#4443E4] text-white text-[14px] font-medium flex items-center gap-2",
+              downloadAllDisabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-95",
+            ].join(" ")}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M12 3v10" stroke="white" strokeWidth="2" strokeLinecap="round" />
@@ -186,7 +192,7 @@ export default function TemplateTableCard({
               />
               <path d="M4 17v3h16v-3" stroke="white" strokeWidth="2" strokeLinecap="round" />
             </svg>
-            Download All Blog as PDF
+            {downloadAllLabel}
           </button>
         </div>
       </div>

@@ -1,11 +1,11 @@
-import { useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
 import NanoBananaTemplateCard from "../interface/NanoBananaTemplateCard.jsx";
 import GenerateImageIcon from "../assets/generate-image.svg";
-import { apiPost } from "../lib/api.js";
+import { apiGet, apiPost } from "../lib/api.js";
 
 function RatioOption({ label, value, selected, onChange }) {
   return (
@@ -41,6 +41,7 @@ export default function NanoBananaPage() {
   const [generatedImages, setGeneratedImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const fileInputRef = useRef(null);
   const [referenceFiles, setReferenceFiles] = useState([]);
@@ -89,8 +90,14 @@ export default function NanoBananaPage() {
         primary_color: primaryColor,
       });
       if (data?.image_url) {
+        setLoadError("");
         setGeneratedImages((prev) => [
-          { id: `${Date.now()}-${Math.random()}`, src: data.image_url, title: "Nano Banana" },
+          {
+            id: `${Date.now()}-${Math.random()}`,
+            src: data.image_url,
+            title: "Nano Banana",
+            subtitle: data?.meta?.prompt || "",
+          },
           ...prev,
         ]);
       }
@@ -122,6 +129,34 @@ export default function NanoBananaPage() {
       top: Math.round(r.bottom + 8),
     });
   }, [primaryColor]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadImages = async () => {
+      try {
+        setLoadError("");
+        const data = await apiGet("/images?limit=24");
+        if (ignore) return;
+        const items = (data?.items || []).map((img) => ({
+          id: img.id,
+          src: img.image_url,
+          title: "Nano Banana",
+          subtitle: img?.meta?.prompt || "",
+        }));
+        setGeneratedImages(items);
+      } catch (err) {
+        if (!ignore) {
+          setLoadError(err?.message || "Failed to load saved images.");
+        }
+      }
+    };
+
+    loadImages();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -332,6 +367,10 @@ export default function NanoBananaPage() {
                   </div>
                 )}
               </div>
+
+              {loadError ? (
+                <div className="mt-3 text-[12px] text-[#DC2626]">{loadError}</div>
+              ) : null}
             </div>
 
             <div className="h-10" />
