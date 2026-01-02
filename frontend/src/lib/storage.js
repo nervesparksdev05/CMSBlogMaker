@@ -1,5 +1,11 @@
 let draftCache = {};
 let previewCache = null;
+const DRAFT_EVENT = "cms:draft";
+
+function notifyDraft() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(DRAFT_EVENT, { detail: { ...draftCache } }));
+}
 
 export function loadDraft() {
   return { ...draftCache };
@@ -7,11 +13,13 @@ export function loadDraft() {
 
 export function saveDraft(patch) {
   draftCache = { ...draftCache, ...(patch || {}) };
+  notifyDraft();
   return { ...draftCache };
 }
 
 export function clearDraft() {
   draftCache = {};
+  notifyDraft();
 }
 
 export function requireDraft(keys = []) {

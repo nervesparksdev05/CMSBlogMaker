@@ -26,6 +26,7 @@ export default function TemplateTableCard({
   onDownloadAll,
   downloadAllLabel = "Download All Blog as PDF",
   downloadAllDisabled = false,
+  showActions = true,
 
   // selection
   selectable = true,
@@ -163,38 +164,40 @@ export default function TemplateTableCard({
           ) : null}
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={onDeleteAll}
-            className="h-[40px] px-6 rounded-[10px] bg-white border border-[#D1D5DB] text-[14px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-          >
-            Delete all
-          </button>
+        {showActions ? (
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onDeleteAll}
+              className="h-[40px] px-6 rounded-[10px] bg-white border border-[#D1D5DB] text-[14px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+            >
+              Delete all
+            </button>
 
-          <button
-            type="button"
-            onClick={onDownloadAll}
-            disabled={downloadAllDisabled}
-            className={[
-              "h-[40px] px-6 rounded-[10px] bg-[#4443E4] text-white text-[14px] font-medium flex items-center gap-2",
-              downloadAllDisabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-95",
-            ].join(" ")}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 3v10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-              <path
-                d="M8 10l4 4 4-4"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path d="M4 17v3h16v-3" stroke="white" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            {downloadAllLabel}
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={onDownloadAll}
+              disabled={downloadAllDisabled}
+              className={[
+                "h-[40px] px-6 rounded-[10px] bg-[#4443E4] text-white text-[14px] font-medium flex items-center gap-2",
+                downloadAllDisabled ? "opacity-60 cursor-not-allowed" : "hover:opacity-95",
+              ].join(" ")}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3v10" stroke="white" strokeWidth="2" strokeLinecap="round" />
+                <path
+                  d="M8 10l4 4 4-4"
+                  stroke="white"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <path d="M4 17v3h16v-3" stroke="white" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              {downloadAllLabel}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       {/* search */}

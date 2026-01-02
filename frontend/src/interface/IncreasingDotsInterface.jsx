@@ -1,21 +1,23 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { loadDraft } from "../lib/storage.js";
 
 export default function IncreasingDotsInterface() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+  const [draft, setDraft] = useState(loadDraft());
 
- const steps = useMemo(
-  () => [
-    { label: "Details of Blog", path: "/create-blog" },
-    { label: "Blog Title", path: "/create-blog/title" },
-    { label: "Introduction", path: "/create-blog/intro" },
-    { label: "Outlined", path: "/create-blog/outline" },
-    { label: "Image", path: "/create-blog/image" },          // ✅ Image first
-    { label: "Verify Content", path: "/create-blog/review" }, // ✅ then Verify
-  ],
-  []
-);
+  const steps = useMemo(
+    () => [
+      { label: "Details of Blog", path: "/create-blog" },
+      { label: "Blog Title", path: "/create-blog/title" },
+      { label: "Introduction", path: "/create-blog/intro" },
+      { label: "Outlined", path: "/create-blog/outline" },
+      { label: "Image", path: "/create-blog/image" },
+      { label: "Verify Content", path: "/create-blog/review" },
+    ],
+    []
+  );
 
   const selectedIndex = useMemo(() => {
     const clean = pathname.replace(/\/+$/, "") || "/";
@@ -25,6 +27,37 @@ export default function IncreasingDotsInterface() {
     const idx = steps.findIndex((s) => s.path === clean);
     return idx >= 0 ? idx : 0;
   }, [pathname, steps]);
+
+  const maxIndex = useMemo(() => {
+    const detailsDone = Boolean(
+      (draft.selected_idea || draft.focus_or_niche || "").trim()
+    );
+    const titleDone = Boolean((draft.title || "").trim());
+    const introDone = Boolean((draft.intro_md || "").trim());
+    const outlineDone = Array.isArray(draft.outline) && draft.outline.length > 0;
+    const imageDone = Boolean((draft.cover_image_url || "").trim());
+
+    if (!detailsDone) return 0;
+    if (!titleDone) return 1;
+    if (!introDone) return 2;
+    if (!outlineDone) return 3;
+    if (!imageDone) return 4;
+    return 5;
+  }, [draft]);
+
+  useEffect(() => {
+    const handleDraft = (event) => {
+      setDraft(event?.detail || loadDraft());
+    };
+    window.addEventListener("cms:draft", handleDraft);
+    return () => window.removeEventListener("cms:draft", handleDraft);
+  }, []);
+
+  useEffect(() => {
+    if (selectedIndex > maxIndex) {
+      navigate(steps[maxIndex].path);
+    }
+  }, [selectedIndex, maxIndex, navigate, steps]);
 
   const wrapRef = useRef(null);
   const dotRefs = useRef([]);
@@ -73,13 +106,11 @@ export default function IncreasingDotsInterface() {
         "
       >
         <div ref={wrapRef} className="relative w-full">
-          {/* Dark base line (matches screenshot) */}
           <div
             className="absolute top-[14px] h-[4px] bg-[#1F2937] rounded-full"
             style={{ left: line.left, right: line.right }}
           />
 
-          {/* Blue progress line */}
           <div
             className="absolute top-[14px] h-[4px] bg-[#4443E4] rounded-full"
             style={{ left: line.left, width: line.progressW }}
@@ -89,32 +120,37 @@ export default function IncreasingDotsInterface() {
             {steps.map((step, idx) => {
               const done = idx <= selectedIndex;
               const selected = idx === selectedIndex;
+              const locked = idx > maxIndex;
 
               return (
                 <button
                   key={step.path}
                   type="button"
-                  onClick={() => navigate(step.path)}
-                  className="flex flex-col items-center gap-[10px] min-w-0"
+                  onClick={() => {
+                    if (!locked) navigate(step.path);
+                  }}
+                  disabled={locked}
+                  className={[
+                    "flex flex-col items-center gap-[10px] min-w-0",
+                    locked ? "cursor-not-allowed" : "",
+                  ].join(" ")}
                 >
-                  {/* ✅ Circles match screenshot */}
                   <span
                     ref={(el) => (dotRefs.current[idx] = el)}
                     className={[
                       "w-[26px] h-[26px] rounded-full flex items-center justify-center",
-                      done
-                        ? "bg-white border-[4px] border-[#4443E4]" // empty ring (completed/current)
-                        : "bg-[#E5E7EB]", // solid grey (upcoming)
+                      done && !locked
+                        ? "bg-white border-[4px] border-[#4443E4]"
+                        : "bg-[#E5E7EB]",
                       selected ? "scale-105" : "",
                       "transition-transform",
                     ].join(" ")}
                   />
 
-                  {/* ✅ Labels: upcoming grey, current bold */}
                   <span
                     className={[
                       "text-[13px] leading-[16px] text-center whitespace-pre-line",
-                      done ? "text-[#111827]" : "text-[#9CA3AF]",
+                      done && !locked ? "text-[#111827]" : "text-[#9CA3AF]",
                       selected ? "font-semibold" : "font-medium",
                     ].join(" ")}
                   >

@@ -437,6 +437,7 @@ export default function CmsHomePage() {
                 onDownloadAll={onDownloadAll}
                 downloadAllLabel={downloading ? "Preparing PDF..." : "Download All Blog as PDF"}
                 downloadAllDisabled={downloading || rows.length === 0}
+                showActions={false}
                 selectable
                 selectedIds={selectedIds}
                 onToggleRow={onToggleRow}

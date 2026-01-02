@@ -1,4 +1,5 @@
 // src/pages/CreateBlogDashboard.jsx
+import { useEffect, useState } from "react";
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
@@ -6,8 +7,21 @@ import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
 import BlogDetails from "../interface/BlogDetails";
 import NextButton from "../buttons/NextButton";
+import { loadDraft } from "../lib/storage.js";
 
 export default function CreateBlogPage() {
+  const [draft, setDraft] = useState(loadDraft());
+
+  useEffect(() => {
+    const handleDraft = (event) => {
+      setDraft(event?.detail || loadDraft());
+    };
+    window.addEventListener("cms:draft", handleDraft);
+    return () => window.removeEventListener("cms:draft", handleDraft);
+  }, []);
+
+  const canNext = Boolean((draft.selected_idea || draft.focus_or_niche || "").trim());
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       {/* ✅ sticky stack */}
@@ -39,7 +53,7 @@ export default function CreateBlogPage() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <NextButton />
+              <NextButton disabled={!canNext} />
             </div>
           </div>
         </div>
