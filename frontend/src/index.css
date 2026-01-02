@@ -1,1 +1,58 @@
 @import "tailwindcss";
+
+.blog-body {
+  max-width: 720px;
+  margin: 0 auto;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.blog-body h2 {
+  margin-top: 22px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.blog-body h3 {
+  margin-top: 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.blog-body p {
+  margin-top: 10px;
+}
+
+.blog-body a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.blog-body ul {
+  margin-top: 10px;
+  padding-left: 18px;
+}
+
+.blog-body li {
+  margin-top: 6px;
+}
+
+.blog-body blockquote {
+  margin: 26px auto;
+  max-width: 520px;
+  font-style: italic;
+  text-align: center;
+  color: #4b5563;
+}
+
+.blog-body blockquote p {
+  margin: 0;
+}
+
+.blog-body img {
+  margin: 18px 0;
+  border-radius: 10px;
+}

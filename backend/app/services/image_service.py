@@ -1,8 +1,7 @@
+import base64
 import os
 import uuid
 from textwrap import dedent
-from io import BytesIO
-from PIL import Image
 from google import genai
 from google.genai import types
 
@@ -22,6 +21,75 @@ def _get_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+_BASE64_CHARS = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\n\r")
+
+def _detect_image_kind(data: bytes) -> str | None:
+    if not data:
+        return None
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "jpeg"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp"
+    if data[:2] == b"BM":
+        return "bmp"
+    return None
+
+def _looks_like_base64(data: bytes) -> bool:
+    if not data:
+        return False
+    sample = data[:256]
+    return all(b in _BASE64_CHARS for b in sample)
+
+def _normalize_image_bytes(data: bytes) -> bytes:
+    if not data:
+        return data
+    if data.startswith(b"data:"):
+        _, _, b64_data = data.partition(b",")
+        try:
+            decoded = base64.b64decode(b64_data, validate=False)
+        except Exception:
+            return data
+        return decoded
+    if _detect_image_kind(data):
+        return data
+    if _looks_like_base64(data):
+        try:
+            decoded = base64.b64decode(data, validate=False)
+        except Exception:
+            return data
+        if _detect_image_kind(decoded):
+            return decoded
+    return data
+
+def _extension_from_bytes(data: bytes, mime_type: str | None) -> str:
+    if mime_type:
+        mime = mime_type.lower()
+        if "png" in mime:
+            return "png"
+        if "jpeg" in mime or "jpg" in mime:
+            return "jpg"
+        if "webp" in mime:
+            return "webp"
+        if "gif" in mime:
+            return "gif"
+        if "bmp" in mime:
+            return "bmp"
+    kind = _detect_image_kind(data)
+    if kind == "jpeg":
+        return "jpg"
+    if kind:
+        return kind
+    return "png"
+
+def _prepare_image(data: bytes, mime_type: str | None) -> tuple[bytes, str]:
+    normalized = _normalize_image_bytes(data)
+    ext = _extension_from_bytes(normalized, mime_type)
+    return normalized, ext
 
 async def generate_cover_image(payload: dict) -> dict:
     os.makedirs("uploads", exist_ok=True)
@@ -62,10 +130,11 @@ async def generate_cover_image(payload: dict) -> dict:
         if not img_obj or not img_obj.image_bytes:
             raise RuntimeError("Image model returned no image bytes.")
 
-        img = Image.open(BytesIO(img_obj.image_bytes))
-        filename = f"{uuid.uuid4().hex}.png"
+        img_bytes, ext = _prepare_image(img_obj.image_bytes, img_obj.mime_type)
+        filename = f"{uuid.uuid4().hex}.{ext}"
         path = os.path.join("uploads", filename)
-        img.save(path)
+        with open(path, "wb") as handle:
+            handle.write(img_bytes)
 
         return {
             "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
@@ -89,12 +158,19 @@ async def generate_cover_image(payload: dict) -> dict:
         config=cfg,
     )
 
-    for part in resp.parts:
-        if part.inline_data is not None:
-            img: Image.Image = part.as_image()
-            filename = f"{uuid.uuid4().hex}.png"
+    parts = resp.parts or []
+    if not parts and resp.candidates:
+        for cand in resp.candidates:
+            if cand.content and cand.content.parts:
+                parts.extend(cand.content.parts)
+
+    for part in parts:
+        if part.inline_data is not None and part.inline_data.data:
+            img_bytes, ext = _prepare_image(part.inline_data.data, part.inline_data.mime_type)
+            filename = f"{uuid.uuid4().hex}.{ext}"
             path = os.path.join("uploads", filename)
-            img.save(path)
+            with open(path, "wb") as handle:
+                handle.write(img_bytes)
 
             return {
                 "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",

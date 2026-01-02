@@ -5,13 +5,13 @@ import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
 import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
+import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
 
 import FacebookIcon from "../assets/facebook-icon.svg";
 import TwitterIcon from "../assets/twitter-icon.svg";
 import LinkedInIcon from "../assets/linkedin-icon.svg";
 import { apiGet, apiPost } from "../lib/api.js";
-
-const PREVIEW_STORAGE_KEY = "cms_preview_edited_html_v2";
+import { setPreviewData } from "../lib/storage.js";
 
 export default function GeneratedBlogPage() {
   const navigate = useNavigate();
@@ -25,7 +25,27 @@ export default function GeneratedBlogPage() {
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
 
-  const blogId = searchParams.get("id") || localStorage.getItem("cms_last_blog_id");
+  const blogId = searchParams.get("id");
+  const heroUrl =
+    blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
+  const title = blog?.meta?.title || blog?.final_blog?.render?.title || "Generated Blog";
+  const html = blog?.final_blog?.html || "";
+  const bodyHtml = useMemo(() => {
+    if (!html) return "";
+    if (!heroUrl) return html;
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const firstImage = doc.querySelector("img");
+      if (firstImage) {
+        firstImage.remove();
+      }
+      return doc.body.innerHTML;
+    } catch (err) {
+      return html;
+    }
+  }, [html, heroUrl]);
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -48,7 +68,7 @@ export default function GeneratedBlogPage() {
   }, [blogId]);
 
   useEffect(() => {
-    if (!blog?.final_blog?.html) return;
+    if (!bodyHtml) return;
     const container = bodyRef.current;
     if (!container) return;
 
@@ -76,7 +96,7 @@ export default function GeneratedBlogPage() {
 
     headings.forEach((h) => observer.observe(h));
     return () => observer.disconnect();
-  }, [blog]);
+  }, [bodyHtml]);
 
   const scrollTo = (id) => {
     const el = document.getElementById(id);
@@ -88,10 +108,7 @@ export default function GeneratedBlogPage() {
     const html = blog?.final_blog?.html || "";
     const title = blog?.meta?.title || blog?.final_blog?.render?.title || "";
     const heroUrl = blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
-    localStorage.setItem(
-      PREVIEW_STORAGE_KEY,
-      JSON.stringify({ title, heroUrl, html })
-    );
+    setPreviewData({ title, heroUrl, html });
     navigate("/preview-edited");
   };
 
@@ -108,10 +125,42 @@ export default function GeneratedBlogPage() {
     }
   };
 
-  const heroUrl =
-    blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
-  const title = blog?.meta?.title || blog?.final_blog?.render?.title || "Generated Blog";
-  const html = blog?.final_blog?.html || "";
+  const tagLabel = useMemo(() => {
+    const raw =
+      blog?.meta?.targeted_keyword ||
+      blog?.meta?.focus_or_niche ||
+      blog?.meta?.selected_idea ||
+      "";
+    const trimmed = raw.trim();
+    return trimmed || "Blog";
+  }, [blog]);
+
+  const readTime = useMemo(() => {
+    if (!html) return 0;
+    const text = html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (!text) return 0;
+    const words = text.split(" ").length;
+    return Math.max(1, Math.round(words / 180));
+  }, [html]);
+
+  const metaLine = useMemo(() => {
+    const parts = [];
+    if (blog?.created_at) {
+      const createdAt = new Date(blog.created_at);
+      if (!Number.isNaN(createdAt.getTime())) {
+        const now = new Date();
+        const options = { month: "short", day: "numeric" };
+        if (createdAt.getFullYear() !== now.getFullYear()) {
+          options.year = "numeric";
+        }
+        parts.push(createdAt.toLocaleDateString("en-US", options));
+      }
+    }
+    if (readTime) {
+      parts.push(`${readTime} min read`);
+    }
+    return parts.join(" - ");
+  }, [blog?.created_at, readTime]);
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -127,131 +176,147 @@ export default function GeneratedBlogPage() {
         <Sidebar />
 
         <div className="flex-1">
-          <div className="px-10 pt-6 pb-10">
-            <BackToDashBoardButton />
+          <div className="px-8 pt-6 pb-10">
+            <div className="max-w-[1200px] mx-auto">
+              <BackToDashBoardButton />
 
-            {loading ? (
-              <div className="mt-6 text-[14px] text-[#6B7280]">Loading blog...</div>
-            ) : null}
+              <div className="mt-4">
+                <IncreasingDotsInterface />
+              </div>
 
-            {error ? (
-              <div className="mt-6 text-[14px] text-[#DC2626]">{error}</div>
-            ) : null}
+              {loading ? (
+                <div className="mt-6 text-[14px] text-[#6B7280]">Loading blog...</div>
+              ) : null}
 
-            {!loading && !error ? (
-              <div className="mt-6 flex gap-6 items-start">
-                <div className="w-[360px] shrink-0">
-                  <div className="rounded-[12px] border border-[#E5E7EB] bg-white p-6">
-                    <div className="text-[18px] font-semibold text-[#111827]">
-                      Table of contents
-                    </div>
+              {error ? (
+                <div className="mt-6 text-[14px] text-[#DC2626]">{error}</div>
+              ) : null}
 
-                    <div className="mt-4 space-y-2">
-                      {toc.map((item) => {
-                        const isActive = item.id === activeId;
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => scrollTo(item.id)}
-                            className={[
-                              "w-full text-left rounded-[8px] px-3 py-2",
-                              "hover:bg-[#F4F6FF]",
-                              isActive ? "bg-[#F4F6FF]" : "bg-transparent",
-                            ].join(" ")}
-                          >
-                            <div className="flex items-start gap-3">
-                              <span
-                                className={[
-                                  "mt-[3px] w-[3px] h-[24px] rounded-full",
-                                  isActive ? "bg-[#4443E4]" : "bg-transparent",
-                                ].join(" ")}
-                              />
-                              <span
-                                className={[
-                                  "text-[14px] leading-[20px]",
-                                  isActive
-                                    ? "text-[#1D4ED8] font-semibold"
-                                    : "text-[#111827] font-medium",
-                                ].join(" ")}
-                              >
-                                {item.label}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+              {!loading && !error ? (
+                <div className="mt-8 flex gap-8 items-start">
+                  <div className="w-[320px] shrink-0">
+                    <div className="rounded-[12px] border border-[#E5E7EB] bg-white p-5">
+                      <div className="text-[16px] font-semibold text-[#111827]">
+                        Table of contents
+                      </div>
 
-                    <div className="mt-5 flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handlePreview}
-                        className="
-                          flex-1 h-[44px] rounded-full
-                          border border-[#D1D5DB] bg-white
-                          text-[14px] font-medium text-[#111827]
-                          hover:bg-[#F9FAFB]
-                        "
-                      >
-                        Preview
-                      </button>
+                      <div className="mt-4 space-y-1">
+                        {toc.map((item) => {
+                          const isActive = item.id === activeId;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => scrollTo(item.id)}
+                              className={[
+                                "w-full text-left rounded-[8px] px-3 py-2",
+                                "hover:bg-[#EEF2FF]",
+                                isActive ? "bg-[#EEF2FF]" : "bg-transparent",
+                              ].join(" ")}
+                            >
+                              <div className="flex items-start gap-3">
+                                <span
+                                  className={[
+                                    "mt-[3px] w-[3px] h-[22px] rounded-full",
+                                    isActive ? "bg-[#4443E4]" : "bg-transparent",
+                                  ].join(" ")}
+                                />
+                                <span
+                                  className={[
+                                    "text-[13px] leading-[18px]",
+                                    isActive
+                                      ? "text-[#4443E4] font-semibold"
+                                      : "text-[#111827] font-medium",
+                                  ].join(" ")}
+                                >
+                                  {item.label}
+                                </span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                      <button
-                        type="button"
-                        onClick={handlePublish}
-                        disabled={publishing}
-                        className="
-                          flex-1 h-[44px] rounded-full
-                          bg-[#4443E4] text-white
-                          text-[14px] font-semibold
-                          hover:opacity-95
-                          disabled:opacity-60 disabled:cursor-not-allowed
-                        "
-                      >
-                        {publishing ? "Submitting..." : "Publish"}
-                      </button>
+                      <div className="mt-6 flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handlePreview}
+                          className="
+                            flex-1 h-[42px] rounded-full
+                            border border-[#D1D5DB] bg-white
+                            text-[13px] font-medium text-[#111827]
+                            hover:bg-[#F9FAFB]
+                          "
+                        >
+                          Preview
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handlePublish}
+                          disabled={publishing}
+                          className="
+                            flex-1 h-[42px] rounded-full
+                            bg-[#4443E4] text-white
+                            text-[13px] font-semibold
+                            hover:opacity-95
+                            disabled:opacity-60 disabled:cursor-not-allowed
+                          "
+                        >
+                          {publishing ? "Submitting..." : "Publish"}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex-1 min-w-0">
-                  <div className="rounded-[14px] border border-[#E5E7EB] bg-white shadow-sm overflow-hidden">
-                    {heroUrl ? (
-                      <div className="relative">
-                        <img
-                          src={heroUrl}
-                          alt=""
-                          className="w-full h-[260px] object-cover"
-                          draggable={false}
-                        />
-                        <div className="absolute inset-x-0 bottom-0 p-6">
-                          <div className="absolute inset-x-0 bottom-0 h-[180px] bg-gradient-to-t from-black/80 via-black/35 to-transparent" />
-                          <div className="relative">
-                            <div className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-[6px] text-[12px] font-medium text-[#111827]">
-                              <span className="w-[8px] h-[8px] rounded-full bg-[#4443E4]" />
-                              Blog
-                            </div>
-                            <div className="mt-3 text-white text-[26px] leading-[32px] font-semibold max-w-[920px]">
-                              {title}
+                  <div className="flex-1 min-w-0">
+                    <div className="rounded-[14px] border border-[#E5E7EB] bg-white shadow-sm overflow-hidden">
+                      {heroUrl ? (
+                        <div className="relative">
+                          <img
+                            src={heroUrl}
+                            alt=""
+                            className="w-full h-[260px] object-cover"
+                            draggable={false}
+                          />
+                          <div className="absolute inset-x-0 bottom-0">
+                            <div className="absolute inset-x-0 bottom-0 h-[190px] bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                            <div className="relative px-6 pb-6 pt-16">
+                              <div className="flex flex-wrap items-center gap-3 text-[12px] text-white/90">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-[6px] text-[12px] font-medium text-[#111827]">
+                                  <span className="w-[8px] h-[8px] rounded-full bg-[#4443E4]" />
+                                  {tagLabel}
+                                </span>
+                                {metaLine ? <span>{metaLine}</span> : null}
+                              </div>
+                              <div className="mt-3 text-white text-[24px] leading-[30px] font-semibold max-w-[860px]">
+                                {title}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="px-6 py-5 text-[20px] font-semibold text-[#111827]">
-                        {title}
-                      </div>
-                    )}
-                  </div>
+                      ) : (
+                        <div className="px-6 py-5">
+                          <div className="flex flex-wrap items-center gap-3 text-[12px] text-[#6B7280]">
+                            <span className="inline-flex items-center gap-2 rounded-full bg-[#EEF2FF] px-3 py-[6px] text-[12px] font-medium text-[#4443E4]">
+                              <span className="w-[8px] h-[8px] rounded-full bg-[#4443E4]" />
+                              {tagLabel}
+                            </span>
+                            {metaLine ? <span>{metaLine}</span> : null}
+                          </div>
+                          <div className="mt-4 text-[#111827] text-[22px] leading-[28px] font-semibold">
+                            {title}
+                          </div>
+                        </div>
+                      )}
 
-                  <div className="mt-6">
-                    <div className="rounded-[14px] border border-[#E5E7EB] bg-white shadow-sm p-6">
-                      <div
-                        ref={bodyRef}
-                        className="prose max-w-none blog-body"
-                        dangerouslySetInnerHTML={{ __html: html }}
-                      />
+                      <div className="px-6 pb-6 pt-5">
+                        <div
+                          ref={bodyRef}
+                          className="blog-body"
+                          dangerouslySetInnerHTML={{ __html: bodyHtml }}
+                        />
+                      </div>
                     </div>
 
                     <div className="mt-10">
@@ -279,8 +344,8 @@ export default function GeneratedBlogPage() {
                     <div className="h-10" />
                   </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

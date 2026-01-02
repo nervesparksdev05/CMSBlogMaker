@@ -69,9 +69,6 @@ export default function ReviewInfoPage() {
       });
 
       const blogId = saved?.blog_id || "";
-      if (blogId) {
-        localStorage.setItem("cms_last_blog_id", blogId);
-      }
       navigate(`/create-blog/generated${blogId ? `?id=${blogId}` : ""}`);
     } catch (err) {
       setError(err?.message || "Failed to generate blog.");

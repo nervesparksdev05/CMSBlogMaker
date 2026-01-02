@@ -1,5 +1,6 @@
 // src/Pages/PreviewEditedPage.jsx
 import { useMemo, useRef, useState } from "react";
+import { getPreviewData, setPreviewData } from "../lib/storage.js";
 
 import MainHeader from "../interface/MainHeader";
 import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
@@ -7,8 +8,6 @@ import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import FacebookIcon from "../assets/facebook-icon.svg";
 import TwitterIcon from "../assets/twitter-icon.svg";
 import LinkedInIcon from "../assets/linkedin-icon.svg";
-
-const STORAGE_KEY = "cms_preview_edited_html_v2";
 
 function safeParse(v, fallback) {
   try {
@@ -153,7 +152,7 @@ export default function PreviewEditedPage() {
   const editorRef = useRef(null);
 
   const initial = useMemo(() => {
-    const saved = safeParse(localStorage.getItem(STORAGE_KEY) || "null", null);
+    const saved = getPreviewData();
     return (
       saved || {
         title: "Preview",
@@ -175,14 +174,11 @@ export default function PreviewEditedPage() {
   };
 
   const save = () => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        title,
-        heroUrl,
-        html: editorRef.current?.innerHTML ?? html,
-      })
-    );
+    setPreviewData({
+      title,
+      heroUrl,
+      html: editorRef.current?.innerHTML ?? html,
+    });
     setIsEditing(false);
   };
 

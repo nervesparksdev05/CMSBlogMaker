@@ -21,6 +21,16 @@ def _raise_ai_error(err: Exception):
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="AI quota exhausted. Add billing to your Gemini project.",
         )
+    if "getaddrinfo failed" in lower or "name resolution" in lower:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to reach the Gemini API (DNS/network). Check internet, VPN, or firewall.",
+        )
+    if "response modalities" in lower and "image" in lower:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image generation is not supported for this Gemini model/API key. Enable a supported image model or billing.",
+        )
     if "not found" in lower and "models/" in lower:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

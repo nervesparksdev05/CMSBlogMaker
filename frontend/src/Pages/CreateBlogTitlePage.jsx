@@ -65,7 +65,6 @@ export default function CreateBlogTitlePage() {
   };
 
   const handlePreview = () => {
-    localStorage.setItem("cms_selected_title", selectedTitle || "");
     navigate("/preview-edited");
   };
 

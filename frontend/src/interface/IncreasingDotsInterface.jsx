@@ -19,6 +19,9 @@ export default function IncreasingDotsInterface() {
 
   const selectedIndex = useMemo(() => {
     const clean = pathname.replace(/\/+$/, "") || "/";
+    if (clean.startsWith("/create-blog/generated")) {
+      return steps.length - 1;
+    }
     const idx = steps.findIndex((s) => s.path === clean);
     return idx >= 0 ? idx : 0;
   }, [pathname, steps]);

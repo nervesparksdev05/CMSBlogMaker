@@ -160,7 +160,7 @@ export default function GalleryCard({
         {!images?.length ? (
           <div className="h-[140px] flex items-center justify-center">
             <div className="text-[18px] font-semibold text-[#111827]">
-              You have not Upload or Generated any image
+              You have not Uploaded or Generated any image 
             </div>
           </div>
         ) : (

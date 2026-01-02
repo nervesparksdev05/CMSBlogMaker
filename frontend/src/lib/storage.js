@@ -1,21 +1,17 @@
-const KEY = "cms_blog_draft_v1";
+let draftCache = {};
+let previewCache = null;
 
 export function loadDraft() {
-  try {
-    return JSON.parse(localStorage.getItem(KEY) || "null") || {};
-  } catch {
-    return {};
-  }
+  return { ...draftCache };
 }
 
 export function saveDraft(patch) {
-  const next = { ...loadDraft(), ...(patch || {}) };
-  localStorage.setItem(KEY, JSON.stringify(next));
-  return next;
+  draftCache = { ...draftCache, ...(patch || {}) };
+  return { ...draftCache };
 }
 
 export function clearDraft() {
-  localStorage.removeItem(KEY);
+  draftCache = {};
 }
 
 export function requireDraft(keys = []) {
@@ -26,4 +22,17 @@ export function requireDraft(keys = []) {
     }
   }
   return d;
+}
+
+export function setPreviewData(data) {
+  previewCache = data || null;
+  return previewCache;
+}
+
+export function getPreviewData() {
+  return previewCache;
+}
+
+export function clearPreviewData() {
+  previewCache = null;
 }
