@@ -1,6 +1,4 @@
 from typing import List
-import random
-import time
 from textwrap import dedent
 
 from google import genai
@@ -12,17 +10,12 @@ from app.models.schemas import AI_OPTIONS_COUNT
 
 _client = None
 
-def _use_mock() -> bool:
-    return settings.AI_MODE == "mock"
-
 def _normalize_model(name: str) -> str:
     if not name:
         return name
     return name if name.startswith("models/") else f"models/{name}"
 
 def _get_client() -> genai.Client:
-    if _use_mock():
-        raise RuntimeError("AI_MODE=mock is enabled.")
     if not settings.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set.")
     global _client
@@ -43,96 +36,7 @@ def _sys(tone: str, creativity: str) -> str:
         "Return ONLY valid JSON according to the schema.\n"
     )
 
-def _seed_text(payload: dict, key: str) -> str:
-    base = (payload.get(key) or "").strip()
-    if not base:
-        base = (payload.get("focus_or_niche") or "").strip()
-    if not base:
-        base = (payload.get("selected_idea") or "").strip()
-    return base or "Topic"
-
-def _mock_list(prefix: str, count: int) -> List[str]:
-    angles = [
-        "beginner roadmap",
-        "common mistakes",
-        "best tools stack",
-        "case study",
-        "step-by-step plan",
-        "future trends",
-        "practical tips",
-        "checklist",
-        "myths vs facts",
-        "quick wins",
-        "metrics to track",
-        "best practices",
-        "budgeting guide",
-        "2025 update",
-    ]
-    templates = [
-        "{prefix}: {angle}",
-        "How to master {prefix} ({angle})",
-        "{prefix} for teams: {angle}",
-        "The ultimate {prefix} playbook: {angle}",
-        "{prefix} made simple: {angle}",
-    ]
-
-    seed = hash(prefix) ^ int(time.time() / 60)
-    rng = random.Random(seed)
-    rng.shuffle(angles)
-    rng.shuffle(templates)
-
-    out = []
-    i = 0
-    while len(out) < count:
-        angle = angles[i % len(angles)]
-        tmpl = templates[i % len(templates)]
-        out.append(tmpl.format(prefix=prefix, angle=angle))
-        i += 1
-    return out
-
-def _mock_outlines(prefix: str, count: int) -> List[dict]:
-    variants = []
-    for i in range(count):
-        variants.append(
-            {
-                "outline": [
-                    f"Introduction to {prefix}",
-                    f"Why {prefix} matters",
-                    f"{prefix} fundamentals",
-                    "Common pitfalls",
-                    "Tools and workflows",
-                    "Case study",
-                    "Conclusion",
-                ]
-            }
-        )
-    return variants
-
-def _mock_markdown(payload: dict) -> str:
-    title = (payload.get("title") or "Untitled Blog").strip()
-    intro = (payload.get("intro_md") or "This is a starter introduction.").strip()
-    outline = payload.get("outline") or []
-    cover = (payload.get("cover_image_url") or "").strip()
-    refs = [r.strip() for r in (payload.get("reference_links") or "").split(",") if r.strip()]
-
-    lines = [f"# {title}", ""]
-    if cover:
-        lines += [f"![Cover]({cover})", ""]
-    lines += [intro, ""]
-    for heading in outline:
-        lines += [f"## {heading}", "", "Add your content here.", ""]
-    lines += ["## Conclusion", "", "Summarize the key takeaways.", ""]
-    if refs:
-        lines += ["## References", ""]
-        lines += [f"- {r}" for r in refs]
-        lines.append("")
-    return "\n".join(lines).strip()
-
 async def gen_topic_ideas(payload: dict) -> List[str]:
-    if _use_mock():
-        base = _seed_text(payload, "focus_or_niche")
-        return _mock_list(base, AI_OPTIONS_COUNT)
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -153,10 +57,6 @@ async def gen_topic_ideas(payload: dict) -> List[str]:
     return resp.parsed.options
 
 async def gen_titles(payload: dict) -> List[str]:
-    if _use_mock():
-        base = _seed_text(payload, "selected_idea")
-        return _mock_list(base, AI_OPTIONS_COUNT)
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -177,16 +77,6 @@ async def gen_titles(payload: dict) -> List[str]:
     return resp.parsed.options
 
 async def gen_intros(payload: dict) -> List[str]:
-    if _use_mock():
-        base = _seed_text(payload, "selected_idea")
-        options = []
-        for i in range(AI_OPTIONS_COUNT):
-            options.append(
-                f"{base} is growing quickly. This short intro explains the key ideas, "
-                f"why it matters, and what to expect in this post. Option {i + 1}."
-            )
-        return options
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -214,10 +104,6 @@ class _OutlineOptions(BaseModel):
     options: List[_OutlineVariant] = Field(min_length=AI_OPTIONS_COUNT, max_length=AI_OPTIONS_COUNT)
 
 async def gen_outlines(payload: dict):
-    if _use_mock():
-        base = _seed_text(payload, "selected_idea")
-        return _mock_outlines(base, AI_OPTIONS_COUNT)
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -241,10 +127,6 @@ async def gen_outlines(payload: dict):
     return [o.model_dump() for o in resp.parsed.options]
 
 async def gen_image_prompts(payload: dict) -> List[str]:
-    if _use_mock():
-        base = _seed_text(payload, "selected_idea")
-        return _mock_list(f"{base} cover image", AI_OPTIONS_COUNT)
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -266,9 +148,6 @@ async def gen_image_prompts(payload: dict) -> List[str]:
 
 # Final blog generation returns ONE markdown (not 5)
 async def gen_final_blog_markdown(payload: dict) -> str:
-    if _use_mock():
-        return _mock_markdown(payload)
-
     refs = payload.get("reference_links", "")
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}

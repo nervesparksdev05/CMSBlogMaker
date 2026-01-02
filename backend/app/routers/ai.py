@@ -19,7 +19,7 @@ def _raise_ai_error(err: Exception):
     if "resource_exhausted" in msg or "quota" in lower:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="AI quota exhausted. Add billing or set AI_MODE=mock in backend/.env.",
+            detail="AI quota exhausted. Add billing to your Gemini project.",
         )
     if "not found" in lower and "models/" in lower:
         raise HTTPException(

@@ -10,17 +10,12 @@ from core.config import settings
 
 _client = None
 
-def _use_mock() -> bool:
-    return settings.AI_MODE == "mock"
-
 def _normalize_model(name: str) -> str:
     if not name:
         return name
     return name if name.startswith("models/") else f"models/{name}"
 
 def _get_client() -> genai.Client:
-    if _use_mock():
-        raise RuntimeError("AI_MODE=mock is enabled.")
     if not settings.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set.")
     global _client
@@ -28,35 +23,8 @@ def _get_client() -> genai.Client:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
 
-def _hex_to_rgb(value: str):
-    s = (value or "").strip().lstrip("#")
-    if len(s) == 3:
-        s = "".join(ch * 2 for ch in s)
-    if len(s) != 6:
-        return (68, 67, 228)
-    try:
-        return (int(s[0:2], 16), int(s[2:4], 16), int(s[4:6], 16))
-    except ValueError:
-        return (68, 67, 228)
-
 async def generate_cover_image(payload: dict) -> dict:
     os.makedirs("uploads", exist_ok=True)
-
-    if _use_mock():
-        img = Image.new("RGB", (1024, 768), _hex_to_rgb(payload.get("primary_color", "")))
-        filename = f"{uuid.uuid4().hex}.png"
-        path = os.path.join("uploads", filename)
-        img.save(path)
-        return {
-            "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
-            "meta": {
-                "aspect_ratio": payload["aspect_ratio"],
-                "quality": payload["quality"],
-                "primary_color": payload["primary_color"],
-                "model": "mock",
-                "prompt": payload["prompt"],
-            },
-        }
 
     final_prompt = dedent(f"""
     Create a high-quality blog cover image.
