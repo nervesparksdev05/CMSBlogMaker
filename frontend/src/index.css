@@ -22,6 +22,11 @@
   color: #111827;
 }
 
+.blog-body h2,
+.blog-body h3 {
+  scroll-margin-top: 160px;
+}
+
 .blog-body p {
   margin-top: 10px;
 }

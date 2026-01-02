@@ -19,7 +19,6 @@ export default function GeneratedBlogPage() {
   const bodyRef = useRef(null);
 
   const [blog, setBlog] = useState(null);
-  const [toc, setToc] = useState([]);
   const [activeId, setActiveId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -30,22 +29,36 @@ export default function GeneratedBlogPage() {
     blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
   const title = blog?.meta?.title || blog?.final_blog?.render?.title || "Generated Blog";
   const html = blog?.final_blog?.html || "";
-  const bodyHtml = useMemo(() => {
-    if (!html) return "";
-    if (!heroUrl) return html;
+  const parsedBlog = useMemo(() => {
+    if (!html) {
+      return { bodyHtml: "", tocItems: [] };
+    }
 
     try {
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
-      const firstImage = doc.querySelector("img");
-      if (firstImage) {
-        firstImage.remove();
+
+      if (heroUrl) {
+        const firstImage = doc.querySelector("img");
+        if (firstImage) {
+          firstImage.remove();
+        }
       }
-      return doc.body.innerHTML;
+
+      const headings = Array.from(doc.querySelectorAll("h2, h3"));
+      const tocItems = headings.map((heading, idx) => {
+        const id = `section-${idx}`;
+        heading.setAttribute("id", id);
+        return { id, label: heading.textContent || `Section ${idx + 1}` };
+      });
+
+      return { bodyHtml: doc.body.innerHTML, tocItems };
     } catch (err) {
-      return html;
+      return { bodyHtml: html, tocItems: [] };
     }
   }, [html, heroUrl]);
+  const bodyHtml = parsedBlog.bodyHtml;
+  const tocItems = parsedBlog.tocItems;
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -68,19 +81,19 @@ export default function GeneratedBlogPage() {
   }, [blogId]);
 
   useEffect(() => {
-    if (!bodyHtml) return;
+    if (!tocItems.length || !bodyHtml) {
+      setActiveId("");
+      return;
+    }
+
     const container = bodyRef.current;
     if (!container) return;
 
-    const headings = Array.from(container.querySelectorAll("h2"));
-    const items = headings.map((h, idx) => {
-      const id = `section-${idx}`;
-      h.id = id;
-      return { id, label: h.textContent || `Section ${idx + 1}` };
-    });
+    setActiveId(tocItems[0]?.id || "");
 
-    setToc(items);
-    setActiveId(items[0]?.id || "");
+    const headingEls = tocItems
+      .map((item) => container.querySelector(`#${item.id}`))
+      .filter(Boolean);
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -94,14 +107,19 @@ export default function GeneratedBlogPage() {
       { rootMargin: "-20% 0px -65% 0px", threshold: [0.1, 0.25, 0.5, 0.75] }
     );
 
-    headings.forEach((h) => observer.observe(h));
+    headingEls.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [bodyHtml]);
+  }, [bodyHtml, tocItems]);
 
   const scrollTo = (id) => {
-    const el = document.getElementById(id);
+    const container = bodyRef.current;
+    const el =
+      (container && container.querySelector(`#${id}`)) ||
+      document.getElementById(id);
     if (!el) return;
+    setActiveId(id);
     el.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.scrollBy({ top: -160, behavior: "smooth" });
   };
 
   const handlePreview = () => {
@@ -201,7 +219,7 @@ export default function GeneratedBlogPage() {
                       </div>
 
                       <div className="mt-4 space-y-1">
-                        {toc.map((item) => {
+                      {tocItems.map((item) => {
                           const isActive = item.id === activeId;
                           return (
                             <button
