@@ -99,7 +99,7 @@ export default function ReviewInfoPage() {
       </div>
 
       <div className="sticky top-[76px] z-[55] w-full">
-        <HeaderBottomBar title="Content Management System" />
+        <HeaderBottomBar title="Content Management System" showNewBlogButton={false} />
       </div>
 
       <div className="w-full flex">

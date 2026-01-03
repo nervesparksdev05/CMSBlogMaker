@@ -198,7 +198,7 @@ export default function CreateBlogImageUploadPage() {
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <div className="sticky top-0 z-50 w-full">
         <MainHeader />
-        <HeaderBottomBar title="Content Management System" />
+        <HeaderBottomBar title="Content Management System" showNewBlogButton={false} />
       </div>
 
       <div className="w-full flex">

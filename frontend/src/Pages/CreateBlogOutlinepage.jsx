@@ -139,7 +139,7 @@ export default function CreateBlogOutlinePage() {
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
-      <HeaderBottomBar title="Content Management System" />
+      <HeaderBottomBar title="Content Management System" showNewBlogButton={false} />
 
       <div className="w-full flex">
         <Sidebar />

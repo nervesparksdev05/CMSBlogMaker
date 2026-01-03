@@ -226,7 +226,7 @@ export default function GeneratedBlogPage() {
       </div>
 
       <div className="sticky top-[76px] z-[55] w-full shadow-[0_1px_0_0_rgba(229,231,235,1)]">
-        <HeaderBottomBar title="Content Management System" />
+        <HeaderBottomBar title="Content Management System" showNewBlogButton={false} />
       </div>
 
       <div className="w-full flex">
