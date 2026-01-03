@@ -12,11 +12,8 @@ import GeneratedBlogPage from "./Pages/GeneratedBlogPage.jsx";
 import SavedBlogPage from "./Pages/SavedBlogPage.jsx";
 import NanoBananaPage from "./Pages/NanoBananaPage.jsx";
 import PreviewEditedPage from "./Pages/PreviewEditedPage.jsx";
+import GalleryPage from "./Pages/GalleryPage.jsx";
 import { getStoredAuth } from "./lib/api.js";
-
-function GalleryPage() {
-  return <div className="p-6 text-[#111827]">Gallery page coming soon.</div>;
-}
 
 function RequireAuth({ children }) {
   const location = useLocation();

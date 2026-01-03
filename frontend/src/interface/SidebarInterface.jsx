@@ -5,6 +5,7 @@ import DashboardIcon from "../assets/dashboard.svg";
 import CreateBlogIcon from "../assets/write-icon.svg";
 import SavedBlogIcon from "../assets/savedblog-icon.svg";
 import NanoBananaIcon from "../assets/bot-icon.svg";
+import GalleryIcon from "../assets/gallery.svg";
 
 
 const sidebarItems = [
@@ -12,6 +13,7 @@ const sidebarItems = [
   { key: "create", label: "Create Blog", to: "/create-blog", icon: CreateBlogIcon },
   { key: "saved", label: "Saved Blogs", to: "/saved-blogs", icon: SavedBlogIcon },
   { key: "nano", label: "Generate Image (Nano\nBanana)", to: "/generate-image", icon: NanoBananaIcon },
+  { key: "gallery", label: "Gallery", to: "/gallery", icon: GalleryIcon },
   
 ];
 

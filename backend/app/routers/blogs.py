@@ -120,6 +120,20 @@ async def upload_image(file: UploadFile = File(...), user=Depends(get_current_us
 
     filename = f"{uuid.uuid4().hex}{ext}"
     image_url = upload_bytes_to_gcs(data, filename, file.content_type or None)
+    await images_col.insert_one(
+        {
+            "owner_id": user["id"],
+            "owner_name": user.get("name", ""),
+            "image_url": image_url,
+            "meta": {
+                "filename": file.filename or filename,
+                "content_type": file.content_type or "",
+                "size": len(data),
+            },
+            "source": "upload",
+            "created_at": datetime.utcnow(),
+        }
+    )
     return {"image_url": image_url}
 
 
