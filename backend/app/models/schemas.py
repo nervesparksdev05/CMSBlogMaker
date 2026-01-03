@@ -217,6 +217,7 @@ class ImageGenerateIn(BaseModel):
     aspect_ratio: Literal["1:1", "4:3", "3:4", "16:9", "9:16"] = "4:3"
     quality: Literal["low", "medium", "high"] = "high"
     primary_color: str = "#4443E4"
+    source: Literal["blog", "nano"] = "nano"
 
 
 class ImageOut(BaseModel):

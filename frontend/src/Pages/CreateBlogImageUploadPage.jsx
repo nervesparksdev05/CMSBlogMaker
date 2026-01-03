@@ -141,6 +141,7 @@ export default function CreateBlogImageUploadPage() {
       aspect_ratio: aspectMap[aspect] || "4:3",
       quality: qualityMap[quality] || "medium",
       primary_color: primaryColor,
+      source: "blog",
     };
 
     if (!payload.title || !payload.selected_idea || !payload.prompt) {

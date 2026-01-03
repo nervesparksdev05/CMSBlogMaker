@@ -11,7 +11,7 @@ import FacebookIcon from "../assets/facebook-icon.svg";
 import TwitterIcon from "../assets/twitter-icon.svg";
 import LinkedInIcon from "../assets/linkedin-icon.svg";
 import { apiGet, apiPost } from "../lib/api.js";
-import { setPreviewData } from "../lib/storage.js";
+import { clearDraft, saveDraft, setPreviewData } from "../lib/storage.js";
 
 export default function GeneratedBlogPage() {
   const navigate = useNavigate();
@@ -71,6 +71,44 @@ export default function GeneratedBlogPage() {
         setLoading(true);
         const data = await apiGet(`/blogs/${blogId}`);
         setBlog(data);
+        if (data) {
+          const meta = data.meta || {};
+          const render = data.final_blog?.render || {};
+          const outline =
+            Array.isArray(meta.outline) && meta.outline.length
+              ? meta.outline
+              : (render.sections || [])
+                  .map((section) => section?.heading)
+                  .filter(Boolean);
+          const title =
+            meta.title || render.title || data.final_blog?.render?.title || "";
+          const intro =
+            meta.intro_md || render.intro_md || data.final_blog?.render?.intro_md || "";
+          const cover =
+            meta.cover_image_url || render.cover_image_url || "";
+          const focus =
+            meta.focus_or_niche || meta.selected_idea || title || "";
+
+          clearDraft();
+          saveDraft({
+            language: meta.language || "English",
+            tone: meta.tone || "Formal",
+            creativity: meta.creativity || "Regular",
+            focus_or_niche: focus,
+            selected_idea: meta.selected_idea || focus,
+            targeted_keyword: meta.targeted_keyword || "",
+            targeted_audience: meta.targeted_audience || "",
+            reference_links: meta.reference_links || "",
+            title,
+            title_mode: "manual",
+            intro_md: intro,
+            intro_mode: "manual",
+            outline,
+            outline_mode: "manual",
+            image_prompt: meta.image_prompt || "",
+            cover_image_url: cover,
+          });
+        }
       } catch (err) {
         setError(err?.message || "Failed to load blog.");
       } finally {

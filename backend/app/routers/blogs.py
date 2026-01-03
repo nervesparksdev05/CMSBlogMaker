@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 
-from app.models.db import blogs_col
+from app.models.db import blogs_col, images_col
 from core.deps import get_current_user, oid
 from app.models.schemas import BlogCreateIn, BlogOut
 from core.config import settings
@@ -78,7 +78,16 @@ async def blog_stats(user=Depends(get_current_user)):
     saved = await blogs_col.count_documents({**q_owner, "status": "saved"})
     pending = await blogs_col.count_documents({**q_owner, "status": "pending"})
     published = await blogs_col.count_documents({**q_owner, "status": "published"})
-    images = await blogs_col.count_documents({**q_owner, "meta.cover_image_url": {"$ne": ""}})
+    images = await images_col.count_documents(
+        {
+            "owner_id": user["id"],
+            "$or": [
+                {"source": "nano"},
+                {"source": {"$exists": False}},
+                {"source": None},
+            ],
+        }
+    )
 
     return {
         "total_blogs": total,

@@ -88,6 +88,7 @@ export default function NanoBananaPage() {
         aspect_ratio: ratio,
         quality: quality === "high" ? "high" : "medium",
         primary_color: primaryColor,
+        source: "nano",
       });
       if (data?.image_url) {
         setLoadError("");
@@ -136,7 +137,7 @@ export default function NanoBananaPage() {
     const loadImages = async () => {
       try {
         setLoadError("");
-        const data = await apiGet("/images?limit=24");
+        const data = await apiGet("/images?limit=24&source=nano");
         if (ignore) return;
         const items = (data?.items || []).map((img) => ({
           id: img.id,

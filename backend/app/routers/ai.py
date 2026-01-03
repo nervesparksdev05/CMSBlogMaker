@@ -92,13 +92,15 @@ async def image_prompts(payload: ImagePromptsIn):
 @router.post("/image-generate", response_model=ImageOut)
 async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user)):
     try:
-        result = await generate_cover_image(payload.model_dump())
+        data = payload.model_dump()
+        result = await generate_cover_image(data)
         await images_col.insert_one(
             {
                 "owner_id": user["id"],
                 "owner_name": user.get("name", ""),
                 "image_url": result.get("image_url", ""),
                 "meta": result.get("meta", {}),
+                "source": data.get("source", "nano"),
                 "created_at": datetime.utcnow(),
             }
         )

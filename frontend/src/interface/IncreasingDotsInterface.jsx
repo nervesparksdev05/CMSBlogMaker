@@ -54,10 +54,11 @@ export default function IncreasingDotsInterface() {
   }, []);
 
   useEffect(() => {
+    if (pathname.startsWith("/create-blog/generated")) return;
     if (selectedIndex > maxIndex) {
       navigate(steps[maxIndex].path);
     }
-  }, [selectedIndex, maxIndex, navigate, steps]);
+  }, [pathname, selectedIndex, maxIndex, navigate, steps]);
 
   const wrapRef = useRef(null);
   const dotRefs = useRef([]);
