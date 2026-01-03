@@ -9,9 +9,6 @@ export default function NanoBananaTemplateCard({ image }) {
           className="w-full h-full object-cover"
         />
       </div>
-      <div className="px-4 py-3">
-        <div className="text-[13px] font-medium text-[#111827]" />
-      </div>
     </div>
   );
 }

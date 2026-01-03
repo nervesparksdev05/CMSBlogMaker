@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -32,6 +33,7 @@ function RatioOption({ label, value, selected, onChange }) {
 }
 
 export default function NanoBananaPage() {
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState(
     "A sleek, futuristic dashboard with clear data gauges and a success checkmark."
   );
@@ -359,7 +361,7 @@ export default function NanoBananaPage() {
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {generatedImages.length ? (
-                  generatedImages.map((img) => (
+                  generatedImages.slice(0, 3).map((img) => (
                     <NanoBananaTemplateCard key={img.id} image={img} />
                   ))
                 ) : (
@@ -371,6 +373,18 @@ export default function NanoBananaPage() {
 
               {loadError ? (
                 <div className="mt-3 text-[12px] text-[#DC2626]">{loadError}</div>
+              ) : null}
+
+              {generatedImages.length ? (
+                <div className="mt-6 text-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/gallery")}
+                    className="text-[13px] font-semibold text-[#4443E4] hover:underline"
+                  >
+                    Show All
+                  </button>
+                </div>
               ) : null}
             </div>
 
