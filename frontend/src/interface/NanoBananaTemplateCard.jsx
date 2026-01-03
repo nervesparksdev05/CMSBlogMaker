@@ -10,10 +10,7 @@ export default function NanoBananaTemplateCard({ image }) {
         />
       </div>
       <div className="px-4 py-3">
-        <div className="text-[13px] font-medium text-[#111827]">
-          {image.title || "Generated Image"}
-        </div>
-        <div className="text-[12px] text-[#6B7280]">{image.subtitle || ""}</div>
+        <div className="text-[13px] font-medium text-[#111827]" />
       </div>
     </div>
   );
