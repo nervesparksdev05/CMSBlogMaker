@@ -1,13 +1,14 @@
 import base64
-import os
 import uuid
 from textwrap import dedent
 from google import genai
 from google.genai import types
+from google.cloud import storage
 
 from core.config import settings
 
 _client = None
+_storage_client = None
 
 def _normalize_model(name: str) -> str:
     if not name:
@@ -21,6 +22,48 @@ def _get_client() -> genai.Client:
     if _client is None:
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+def _get_storage_client() -> storage.Client:
+    global _storage_client
+    if _storage_client is None:
+        _storage_client = storage.Client()
+    return _storage_client
+
+def _require_bucket() -> str:
+    bucket = settings.GCS_BUCKET
+    if not bucket:
+        raise RuntimeError("GCS_BUCKET is not set.")
+    return bucket
+
+def _gcs_object_name(filename: str) -> str:
+    prefix = (settings.GCS_FOLDER or "").strip("/")
+    return f"{prefix}/{filename}" if prefix else filename
+
+def _gcs_public_url(object_name: str) -> str:
+    base = (settings.GCS_PUBLIC_BASE or "https://storage.googleapis.com").rstrip("/")
+    return f"{base}/{_require_bucket()}/{object_name}"
+
+def _content_type_from_ext(ext: str) -> str:
+    ext = (ext or "").lower().lstrip(".")
+    if ext in ("jpg", "jpeg"):
+        return "image/jpeg"
+    if ext == "png":
+        return "image/png"
+    if ext == "webp":
+        return "image/webp"
+    if ext == "gif":
+        return "image/gif"
+    if ext == "bmp":
+        return "image/bmp"
+    return "application/octet-stream"
+
+def upload_bytes_to_gcs(data: bytes, filename: str, content_type: str | None = None) -> str:
+    bucket_name = _require_bucket()
+    bucket = _get_storage_client().bucket(bucket_name)
+    object_name = _gcs_object_name(filename)
+    blob = bucket.blob(object_name)
+    blob.upload_from_string(data, content_type=content_type or "application/octet-stream")
+    return _gcs_public_url(object_name)
 
 _BASE64_CHARS = set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=\n\r")
 
@@ -92,8 +135,6 @@ def _prepare_image(data: bytes, mime_type: str | None) -> tuple[bytes, str]:
     return normalized, ext
 
 async def generate_cover_image(payload: dict) -> dict:
-    os.makedirs("uploads", exist_ok=True)
-
     final_prompt = dedent(f"""
     Create a high-quality blog cover image.
     Language context: English blog.
@@ -132,12 +173,11 @@ async def generate_cover_image(payload: dict) -> dict:
 
         img_bytes, ext = _prepare_image(img_obj.image_bytes, img_obj.mime_type)
         filename = f"{uuid.uuid4().hex}.{ext}"
-        path = os.path.join("uploads", filename)
-        with open(path, "wb") as handle:
-            handle.write(img_bytes)
+        content_type = img_obj.mime_type or _content_type_from_ext(ext)
+        image_url = upload_bytes_to_gcs(img_bytes, filename, content_type)
 
         return {
-            "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
+            "image_url": image_url,
             "meta": {
                 "aspect_ratio": payload["aspect_ratio"],
                 "quality": payload["quality"],
@@ -168,12 +208,11 @@ async def generate_cover_image(payload: dict) -> dict:
         if part.inline_data is not None and part.inline_data.data:
             img_bytes, ext = _prepare_image(part.inline_data.data, part.inline_data.mime_type)
             filename = f"{uuid.uuid4().hex}.{ext}"
-            path = os.path.join("uploads", filename)
-            with open(path, "wb") as handle:
-                handle.write(img_bytes)
+            content_type = part.inline_data.mime_type or _content_type_from_ext(ext)
+            image_url = upload_bytes_to_gcs(img_bytes, filename, content_type)
 
             return {
-                "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
+                "image_url": image_url,
                 "meta": {
                     "aspect_ratio": payload["aspect_ratio"],
                     "quality": payload["quality"],

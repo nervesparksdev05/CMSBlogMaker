@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 from app.models.db import blogs_col, images_col
 from core.deps import get_current_user, oid
 from app.models.schemas import BlogCreateIn, BlogOut
-from core.config import settings
+from app.services.image_service import upload_bytes_to_gcs
 
 router = APIRouter()
 
@@ -101,16 +101,26 @@ async def blog_stats(user=Depends(get_current_user)):
 # ---------------- UPLOADS ----------------
 @router.post("/blogs/uploads/images", response_model=dict)  # POST /blogs/uploads/images
 async def upload_image(file: UploadFile = File(...), user=Depends(get_current_user)):
-    os.makedirs("uploads", exist_ok=True)
-    ext = os.path.splitext(file.filename or "")[-1].lower() or ".png"
-    filename = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join("uploads", filename)
-
     data = await file.read()
-    with open(path, "wb") as f:
-        f.write(data)
+    ext = os.path.splitext(file.filename or "")[-1].lower()
+    if not ext:
+        ct = (file.content_type or "").lower()
+        if "png" in ct:
+            ext = ".png"
+        elif "jpeg" in ct or "jpg" in ct:
+            ext = ".jpg"
+        elif "webp" in ct:
+            ext = ".webp"
+        elif "gif" in ct:
+            ext = ".gif"
+        elif "bmp" in ct:
+            ext = ".bmp"
+        else:
+            ext = ".png"
 
-    return {"image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}"}
+    filename = f"{uuid.uuid4().hex}{ext}"
+    image_url = upload_bytes_to_gcs(data, filename, file.content_type or None)
+    return {"image_url": image_url}
 
 
 # ---------------- BLOG BY ID ----------------

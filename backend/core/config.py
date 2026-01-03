@@ -22,4 +22,8 @@ class Settings:
     GEMINI_TEXT_MODEL: str = os.getenv("GEMINI_TEXT_MODEL", "gemini-flash-latest")
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.0-flash-exp-image-generation")
 
+    GCS_BUCKET: str = os.getenv("GCS_BUCKET", "")
+    GCS_FOLDER: str = os.getenv("GCS_FOLDER", "")
+    GCS_PUBLIC_BASE: str = os.getenv("GCS_PUBLIC_BASE", "https://storage.googleapis.com")
+
 settings = Settings()
