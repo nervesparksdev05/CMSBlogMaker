@@ -61,6 +61,10 @@ export default function NanoBananaPage() {
     e.target.value = "";
   };
 
+  const removeReferenceAt = (idx) => {
+    setReferenceFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const clearForm = () => {
     setPrompt("");
     setRatio("1:1");
@@ -308,43 +312,70 @@ export default function NanoBananaPage() {
                   </div>
                 </div>
 
-                <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    {referencePreviews.slice(0, 4).map((p) => (
-                      <img
-                        key={p.url}
-                        src={p.url}
-                        alt={p.name}
-                        className="w-10 h-10 rounded-[10px] object-cover border border-[#E5E7EB]"
+                <div className="mt-7">
+                  <div className="text-[13px] font-medium text-[#111827]">Reference Image</div>
+
+                  <div className="mt-3 flex items-center gap-4">
+                    <div className="flex-1 min-h-[64px] rounded-[12px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 flex items-center">
+                      <div className="flex items-center gap-3">
+                        {referencePreviews.length ? (
+                          referencePreviews.slice(0, 6).map((p, idx) => (
+                            <div
+                              key={p.url}
+                              className="relative w-[40px] h-[40px] rounded-[10px] overflow-hidden border border-[#E5E7EB] bg-white"
+                            >
+                              <img
+                                src={p.url}
+                                alt={p.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeReferenceAt(idx)}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#111827] hover:bg-[#F3F4F6]"
+                                aria-label="Remove reference image"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                  <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                  <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-[12px] text-[#6B7280]">
+                            Upload a reference image (optional)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-[38px] px-5 rounded-[999px] bg-white border border-[#D1D5DB] text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+                      >
+                        Upload Reference Image
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={onUploadReference}
+                        className="hidden"
                       />
-                    ))}
-                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-[44px] px-6 rounded-[999px] bg-white border border-[#D1D5DB] text-[14px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-                    >
-                      Upload Reference Image
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={onUploadReference}
-                      className="hidden"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={onGenerate}
-                      disabled={loading}
-                      className="h-[44px] px-7 rounded-[999px] bg-[#4443E4] text-white text-[14px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {loading ? "Generating..." : "Generate Image"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={onGenerate}
+                        disabled={loading}
+                        className="h-[38px] px-6 rounded-[999px] bg-[#4443E4] text-white text-[13px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {loading ? "Generating..." : "Generate Image"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
