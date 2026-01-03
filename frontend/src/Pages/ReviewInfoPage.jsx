@@ -8,7 +8,7 @@ import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
 import IncreasingDotsInterface from "../interface/IncreasingDotsInterface";
 import ReviewInformationTemplate from "../interface/ReviewInformationTemplate";
 import PreviousButton from "../buttons/PreviousButton";
-import { apiPost } from "../lib/api.js";
+import { apiPost, apiRequest } from "../lib/api.js";
 import { loadDraft } from "../lib/storage.js";
 
 export default function ReviewInfoPage() {
@@ -16,6 +16,7 @@ export default function ReviewInfoPage() {
   const draft = loadDraft();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const blogId = draft.blog_id || "";
 
   const meta = useMemo(
     () => ({
@@ -63,13 +64,21 @@ export default function ReviewInfoPage() {
         cover_image_url: meta.cover_image_url,
       });
 
-      const saved = await apiPost("/blog", {
-        meta,
-        final_blog: finalBlog,
-      });
+      let nextId = blogId;
+      if (blogId) {
+        await apiRequest(`/blogs/${blogId}`, {
+          method: "PUT",
+          json: { meta, final_blog: finalBlog },
+        });
+      } else {
+        const saved = await apiPost("/blog", {
+          meta,
+          final_blog: finalBlog,
+        });
+        nextId = saved?.blog_id || "";
+      }
 
-      const blogId = saved?.blog_id || "";
-      navigate(`/create-blog/generated${blogId ? `?id=${blogId}` : ""}`);
+      navigate(`/create-blog/generated${nextId ? `?id=${nextId}` : ""}`);
     } catch (err) {
       setError(err?.message || "Failed to generate blog.");
     } finally {

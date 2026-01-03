@@ -91,6 +91,7 @@ export default function GeneratedBlogPage() {
 
           clearDraft();
           saveDraft({
+            blog_id: data.id || blogId || "",
             language: meta.language || "English",
             tone: meta.tone || "Formal",
             creativity: meta.creativity || "Regular",

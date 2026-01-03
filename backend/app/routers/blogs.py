@@ -140,6 +140,28 @@ async def delete_blog(blog_id: str, user=Depends(get_current_user)):
     return {"ok": True}
 
 
+# ---------------- UPDATE BLOG ----------------
+@router.put("/blogs/{blog_id}", response_model=dict)
+async def update_blog(blog_id: str, payload: BlogCreateIn, user=Depends(get_current_user)):
+    b = await blogs_col.find_one({"_id": oid(blog_id)})
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b["owner_id"] != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    await blogs_col.update_one(
+        {"_id": oid(blog_id)},
+        {
+            "$set": {
+                "meta": payload.meta.model_dump(),
+                "final_blog": payload.final_blog.model_dump(),
+                "updated_at": datetime.utcnow(),
+            }
+        },
+    )
+    return {"ok": True, "blog_id": blog_id}
+
+
 # ---------------- PUBLISH REQUEST ----------------
 @router.post("/blogs/{blog_id}/publish-request", response_model=dict)  # POST /blogs/{blog_id}/publish-request
 async def request_publish(blog_id: str, user=Depends(get_current_user)):

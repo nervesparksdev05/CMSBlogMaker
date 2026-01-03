@@ -1,6 +1,7 @@
 // src/interface/HeaderBottomBar.jsx
 import { useNavigate } from "react-router-dom";
 import CmsIcon from "../assets/cms-icon.svg";
+import { clearDraft } from "../lib/storage.js";
 
 export default function HeaderBottomBar({
   iconSrc = CmsIcon,
@@ -25,6 +26,7 @@ export default function HeaderBottomBar({
 
   const handleNewBlog = () => {
     onNewBlog?.();
+    clearDraft();
     navigate(newBlogTo);
   };
 
