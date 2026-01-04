@@ -163,9 +163,10 @@ export default function GeneratedBlogPage() {
 
   const handlePreview = () => {
     const html = blog?.final_blog?.html || "";
+    const markdown = blog?.final_blog?.markdown || "";
     const title = blog?.meta?.title || blog?.final_blog?.render?.title || "";
     const heroUrl = blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
-    setPreviewData({ title, heroUrl, html });
+    setPreviewData({ title, heroUrl, html, markdown });
     navigate("/preview-edited");
   };
 
