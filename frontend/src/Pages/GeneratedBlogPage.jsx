@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
@@ -60,15 +60,15 @@ export default function GeneratedBlogPage() {
   const bodyHtml = parsedBlog.bodyHtml;
   const tocItems = parsedBlog.tocItems;
 
-  useEffect(() => {
-    const fetchBlog = async () => {
+  const fetchBlog = useCallback(
+    async ({ silent = false } = {}) => {
       if (!blogId) {
         setError("No blog selected.");
         setLoading(false);
         return;
       }
       try {
-        setLoading(true);
+        if (!silent) setLoading(true);
         const data = await apiGet(`/blogs/${blogId}`);
         setBlog(data);
         if (data) {
@@ -113,11 +113,31 @@ export default function GeneratedBlogPage() {
       } catch (err) {
         setError(err?.message || "Failed to load blog.");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
+      }
+    },
+    [blogId]
+  );
+
+  useEffect(() => {
+    fetchBlog();
+  }, [fetchBlog]);
+
+  useEffect(() => {
+    if (!blogId) return;
+    const handleFocus = () => fetchBlog({ silent: true });
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        handleFocus();
       }
     };
-    fetchBlog();
-  }, [blogId]);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [blogId, fetchBlog]);
 
   useEffect(() => {
     if (!tocItems.length || !bodyHtml) {
@@ -166,7 +186,7 @@ export default function GeneratedBlogPage() {
     const markdown = blog?.final_blog?.markdown || "";
     const title = blog?.meta?.title || blog?.final_blog?.render?.title || "";
     const heroUrl = blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
-    setPreviewData({ title, heroUrl, html, markdown });
+    setPreviewData({ title, heroUrl, html, markdown, blogId });
     navigate("/preview-edited");
   };
 

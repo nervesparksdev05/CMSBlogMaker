@@ -1,7 +1,8 @@
 // src/Pages/PreviewEditedPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import { getPreviewData, setPreviewData } from "../lib/storage.js";
+import { getPreviewData, loadDraft, setPreviewData } from "../lib/storage.js";
+import { apiGet, apiRequest } from "../lib/api.js";
 
 import MainHeader from "../interface/MainHeader";
 import BackToDashBoardButton from "../buttons/BackToDashBoardButton";
@@ -28,25 +29,105 @@ marked.setOptions({
 export default function PreviewEditedPage() {
   const initial = useMemo(() => {
     const saved = getPreviewData();
+    const draft = loadDraft();
     return {
       title: saved?.title || "Preview",
       heroUrl: saved?.heroUrl || DEFAULT_HERO,
       markdown: saved?.markdown || saved?.html || DEFAULT_MARKDOWN,
+      blogId: saved?.blogId || saved?.blog_id || draft?.blog_id || "",
     };
   }, []);
 
   const [title] = useState(initial.title);
-  const [heroUrl] = useState(initial.heroUrl);
   const [markdown, setMarkdown] = useState(initial.markdown);
+  const [blogId] = useState(initial.blogId);
+  const [blogData, setBlogData] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const previewHtml = useMemo(
     () => marked.parse(markdown || ""),
     [markdown]
   );
 
+  const extractCoverUrl = (content) => {
+    if (!content) return "";
+    const coverMatch = content.match(/!\[cover[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/i);
+    if (coverMatch?.[1]) return coverMatch[1];
+    const head = content.slice(0, 800);
+    const mdMatch = head.match(/!\[[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/);
+    if (mdMatch?.[1]) return mdMatch[1];
+    const htmlMatch = head.match(/<img[^>]+src=["']([^"']+)["']/i);
+    return htmlMatch?.[1] || "";
+  };
+
+  const coverUrl = useMemo(() => extractCoverUrl(markdown), [markdown]);
+
   useEffect(() => {
-    setPreviewData({ title, heroUrl, markdown, html: previewHtml });
-  }, [title, heroUrl, markdown, previewHtml]);
+    setPreviewData({ title, heroUrl: coverUrl, markdown, html: previewHtml, blogId });
+  }, [title, coverUrl, markdown, previewHtml, blogId]);
+
+  useEffect(() => {
+    const fetchBlog = async () => {
+      if (!blogId) return;
+      try {
+        const data = await apiGet(`/blogs/${blogId}`);
+        setBlogData(data);
+      } catch (err) {
+        setSaveError(err?.message || "Failed to load blog.");
+      }
+    };
+    fetchBlog();
+  }, [blogId]);
+
+  const handleSave = async () => {
+    if (!blogId) {
+      setSaveError("No blog selected to save.");
+      return;
+    }
+    if (!blogData) {
+      setSaveError("Blog data not loaded yet.");
+      return;
+    }
+    try {
+      setSaving(true);
+      setSaveError("");
+      setSaveMessage("");
+      const nextMeta = {
+        ...(blogData.meta || {}),
+        cover_image_url: coverUrl,
+      };
+      const nextRender = {
+        ...(blogData.final_blog?.render || {}),
+        cover_image_url: coverUrl,
+      };
+      const payload = {
+        meta: nextMeta,
+        final_blog: {
+          ...blogData.final_blog,
+          render: nextRender,
+          markdown,
+          html: previewHtml,
+        },
+      };
+      await apiRequest(`/blogs/${blogId}`, { method: "PUT", json: payload });
+      setBlogData((prev) =>
+        prev
+          ? {
+            ...prev,
+            meta: payload.meta,
+            final_blog: payload.final_blog,
+          }
+          : prev
+      );
+      setSaveMessage("Saved.");
+    } catch (err) {
+      setSaveError(err?.message || "Failed to save.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen bg-[#0B0B0F] overflow-hidden">
@@ -56,6 +137,32 @@ export default function PreviewEditedPage() {
 
       <div className="px-6 pt-4 pb-6 h-[calc(100vh-76px)] flex flex-col">
         <BackToDashBoardButton />
+
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-[12px] text-[#9CA3AF]">
+            Changes update the preview instantly. Click Save to persist.
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !blogId}
+            className={[
+              "h-[38px] px-5 rounded-full",
+              "bg-[#4443E4] text-white text-[13px] font-semibold",
+              "hover:opacity-95",
+              saving || !blogId ? "opacity-60 cursor-not-allowed" : "",
+            ].join(" ")}
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+
+        {saveError ? (
+          <div className="mt-2 text-[12px] text-[#F87171]">{saveError}</div>
+        ) : null}
+        {saveMessage ? (
+          <div className="mt-2 text-[12px] text-[#34D399]">{saveMessage}</div>
+        ) : null}
 
         <div className="mt-4 flex flex-row gap-6 flex-1 min-h-0">
           <div className="flex-1 min-w-0 min-h-0 rounded-[16px] border border-[#1F2430] bg-[#0E1117] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] flex flex-col">
