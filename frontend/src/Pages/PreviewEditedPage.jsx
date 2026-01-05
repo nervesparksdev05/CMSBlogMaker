@@ -62,6 +62,12 @@ export default function PreviewEditedPage() {
     return htmlMatch?.[1] || "";
   };
 
+  const extractTitleFromMarkdown = (content) => {
+    if (!content) return "";
+    const match = content.match(/^#{1,6}\s+(.+)\s*$/m);
+    return match?.[1]?.trim() || "";
+  };
+
   const coverUrl = useMemo(() => extractCoverUrl(markdown), [markdown]);
 
   useEffect(() => {
@@ -94,13 +100,21 @@ export default function PreviewEditedPage() {
       setSaving(true);
       setSaveError("");
       setSaveMessage("");
+      const extractedTitle = extractTitleFromMarkdown(markdown);
+      const resolvedTitle =
+        extractedTitle ||
+        blogData?.meta?.title ||
+        blogData?.final_blog?.render?.title ||
+        title;
       const nextMeta = {
         ...(blogData.meta || {}),
         cover_image_url: coverUrl,
+        title: resolvedTitle,
       };
       const nextRender = {
         ...(blogData.final_blog?.render || {}),
         cover_image_url: coverUrl,
+        title: resolvedTitle,
       };
       const payload = {
         meta: nextMeta,
