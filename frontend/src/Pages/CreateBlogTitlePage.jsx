@@ -64,10 +64,6 @@ export default function CreateBlogTitlePage() {
     }
   };
 
-  const handlePreview = () => {
-    navigate("/preview-edited");
-  };
-
   const AiList = (
     <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
       <div className="max-h-[180px] overflow-auto p-3 space-y-2">
@@ -177,18 +173,6 @@ export default function CreateBlogTitlePage() {
           <div className="mt-3 flex items-center gap-3">
             <PreviousButton />
             <div className="ml-auto flex items-center gap-3">
-              <button
-                type="button"
-                onClick={handlePreview}
-                className="
-                  h-[40px] px-6 rounded-full
-                  border border-[#D1D5DB] bg-white
-                  text-[14px] font-medium text-[#111827]
-                  hover:bg-[#F9FAFB]
-                "
-              >
-                Preview
-              </button>
               <NextButton disabled={!canNext} />
             </div>
           </div>
