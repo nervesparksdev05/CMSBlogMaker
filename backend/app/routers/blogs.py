@@ -82,7 +82,7 @@ async def blog_stats(user=Depends(get_current_user)):
         {
             "owner_id": user["id"],
             "$or": [
-                {"source": "nano"},
+                {"source": {"$in": ["nano", "blog"]}},
                 {"source": {"$exists": False}},
                 {"source": None},
             ],
