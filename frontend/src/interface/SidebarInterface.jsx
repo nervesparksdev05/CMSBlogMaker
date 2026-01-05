@@ -1,5 +1,6 @@
 // src/interface/Sidebar.jsx
 import { NavLink } from "react-router-dom";
+import { clearDraft, clearPreviewData } from "../lib/storage.js";
 
 import DashboardIcon from "../assets/dashboard.svg";
 import CreateBlogIcon from "../assets/write-icon.svg";
@@ -30,7 +31,11 @@ export default function Sidebar({ onItemClick, activeKey }) {
               key={item.key}
               to={item.to}
               end={item.end}
-              onClick={() => typeof onItemClick === "function" && onItemClick(item)}
+              onClick={() => {
+                clearDraft();
+                clearPreviewData();
+                if (typeof onItemClick === "function") onItemClick(item);
+              }}
               className={({ isActive }) => {
                 const isManuallyActive = activeKey && item.key === activeKey;
                 const active = isActive || isManuallyActive;
