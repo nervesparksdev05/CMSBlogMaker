@@ -147,7 +147,8 @@ class BlogListItem(BaseModel):
 
 
 # ---------------- AI INPUTS ----------------
-AI_OPTIONS_COUNT = 5  # always 5
+AI_OPTIONS_COUNT = 5  # default count
+AI_OPTIONS_MAX = 10
 
 class TopicIdeasIn(BaseModel):
     # first page dialog box input
@@ -158,6 +159,7 @@ class TopicIdeasIn(BaseModel):
 
     tone: str
     creativity: str
+    count: int = Field(default=AI_OPTIONS_COUNT, ge=1, le=AI_OPTIONS_MAX)
 
 
 class TitlesIn(BaseModel):
@@ -246,4 +248,4 @@ class GenerateBlogIn(BaseModel):
 
 
 class OptionsOut(BaseModel):
-    options: List[str]  # always 5
+    options: List[str]

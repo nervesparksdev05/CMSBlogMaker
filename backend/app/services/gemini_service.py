@@ -3,7 +3,7 @@ from textwrap import dedent
 
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from core.config import settings
 from app.models.schemas import AI_OPTIONS_COUNT
@@ -27,6 +27,12 @@ def _get_client() -> genai.Client:
 class _StringOptions(BaseModel):
     options: List[str] = Field(min_length=AI_OPTIONS_COUNT, max_length=AI_OPTIONS_COUNT)
 
+def _string_options_schema(count: int) -> type[BaseModel]:
+    return create_model(
+        f"_StringOptions_{count}",
+        options=(List[str], Field(min_length=count, max_length=count)),
+    )
+
 def _sys(tone: str, creativity: str) -> str:
     return (
         "You are a senior blog writer.\n"
@@ -37,6 +43,12 @@ def _sys(tone: str, creativity: str) -> str:
     )
 
 async def gen_topic_ideas(payload: dict) -> List[str]:
+    count = payload.get("count") or AI_OPTIONS_COUNT
+    try:
+        count = int(count)
+    except (TypeError, ValueError):
+        count = AI_OPTIONS_COUNT
+
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -44,7 +56,7 @@ async def gen_topic_ideas(payload: dict) -> List[str]:
     Targeted audience: {payload.get('targeted_audience','')}
     Reference links: {payload.get('reference_links','')}
 
-    Generate exactly {AI_OPTIONS_COUNT} blog topic ideas.
+    Generate exactly {count} blog topic ideas.
     Each idea must be a single sentence, clear and specific.
     """).lstrip("\n")
 
@@ -52,7 +64,7 @@ async def gen_topic_ideas(payload: dict) -> List[str]:
     resp = client.models.generate_content(
         model=_normalize_model(settings.GEMINI_TEXT_MODEL),
         contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
+        config={"response_mime_type": "application/json", "response_schema": _string_options_schema(count)},
     )
     return resp.parsed.options
 

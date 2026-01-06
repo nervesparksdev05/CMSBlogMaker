@@ -40,6 +40,7 @@ export default function BlogDetails() {
       reference_links: reference,
       tone,
       creativity,
+      count,
     };
     const data = await apiPost("/ai/ideas", payload);
     const options = data?.options || [];

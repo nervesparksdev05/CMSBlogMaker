@@ -50,7 +50,9 @@ def _raise_ai_error(err: Exception):
 
 @router.post("/ideas", response_model=OptionsOut)
 async def topic_ideas(payload: TopicIdeasIn):
+    print("idea playload",payload)
     try:
+        
         options = await gen_topic_ideas(payload.model_dump())
         return {"options": options}
     except Exception as e:

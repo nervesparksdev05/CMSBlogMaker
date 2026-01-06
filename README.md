@@ -206,7 +206,7 @@ backend/
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/ai/ideas` | Generate 5 topic ideas |
+| `POST` | `/ai/ideas` | Generate topic ideas (default 5, accepts `count`) |
 | `POST` | `/ai/titles` | Generate 5 titles for selected topic |
 | `POST` | `/ai/intros` | Generate 5 intro paragraphs |
 | `POST` | `/ai/outlines` | Generate 5 blog outlines |

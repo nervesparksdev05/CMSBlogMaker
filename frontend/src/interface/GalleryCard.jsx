@@ -11,6 +11,8 @@ export default function GalleryCard({
   onDelete, // ✅ (src) => void
   onUpload, // (files) => void
   onGenerate, // () => void
+  loading = false,
+  emptyMessage = "You have not Uploaded or Generated any image",
   className = "",
 }) {
   const fileRef = useRef(null);
@@ -65,26 +67,43 @@ export default function GalleryCard({
     const active = selectedSrc === src;
 
     return (
-      <button
-        type="button"
-        onClick={(e) => openMenuAt(src, e)}
-        className={[
-          "w-full text-left rounded-[6px] border bg-white overflow-hidden relative",
-          active ? "border-[#4443E4] ring-2 ring-[#4443E4]/25" : "border-[#E5E7EB]",
-        ].join(" ")}
-        title="Options"
-      >
-        <img
-          src={src}
-          alt=""
-          className="w-full h-[160px] object-cover"
-          draggable="false"
-        />
-        {/* tiny hint */}
-        <div className="absolute right-2 top-2 bg-white/90 border border-[#E5E7EB] rounded-full w-8 h-8 flex items-center justify-center text-[#111827]">
-          ⋮
-        </div>
-      </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => onSelect?.(src)}
+          className={[
+            "w-full text-left rounded-[6px] border bg-white overflow-hidden relative",
+            active ? "border-[#4443E4] ring-2 ring-[#4443E4]/25" : "border-[#E5E7EB]",
+          ].join(" ")}
+          title="Select as cover"
+        >
+          <img
+            src={src}
+            alt=""
+            className="w-full h-[160px] object-cover"
+            draggable="false"
+          />
+          {active ? (
+            <div className="absolute left-2 top-2 rounded-full bg-[#4443E4] text-white text-[11px] px-2 py-[2px]">
+              Selected
+            </div>
+          ) : null}
+        </button>
+
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              openMenuAt(src, e);
+            }}
+            className="absolute right-2 top-2 bg-white/90 border border-[#E5E7EB] rounded-full w-8 h-8 flex items-center justify-center text-[#111827]"
+            title="Options"
+          >
+            ...
+          </button>
+        ) : null}
+      </div>
     );
   };
 
@@ -157,10 +176,14 @@ export default function GalleryCard({
       </div>
 
       <div className="mt-6">
-        {!images?.length ? (
+        {loading ? (
+          <div className="h-[140px] flex items-center justify-center">
+            <div className="text-[14px] text-[#6B7280]">Loading images...</div>
+          </div>
+        ) : !images?.length ? (
           <div className="h-[140px] flex items-center justify-center">
             <div className="text-[18px] font-semibold text-[#111827]">
-              You have not Uploaded or Generated any image 
+              {emptyMessage}
             </div>
           </div>
         ) : (
@@ -172,7 +195,7 @@ export default function GalleryCard({
             </div>
 
             <div className="mt-2 text-[12px] text-[#6B7280]">
-              Click an image to see options: Select or Delete.
+              Click an image to select it as the cover.
             </div>
           </div>
         )}

@@ -9,7 +9,7 @@ import GalleryCard from "../interface/GalleryCard";
 import NanoBananaImageCard from "../interface/NanoBananaImageCard";
 import PreviousButton from "../buttons/PreviousButton";
 import NextButton from "../buttons/NextButton";
-import { apiPost, apiUpload } from "../lib/api.js";
+import { apiGet, apiPost, apiUpload } from "../lib/api.js";
 import { loadDraft, saveDraft } from "../lib/storage.js";
 
 const aspectMap = {
@@ -40,7 +40,20 @@ export default function CreateBlogImageUploadPage() {
   const [progress, setProgress] = useState(0);
   const [generatedImages, setGeneratedImages] = useState([]);
   const [error, setError] = useState("");
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryError, setGalleryError] = useState("");
   const progressTimer = useRef(null);
+
+  const mergeUniqueImages = (list) => {
+    const seen = new Set();
+    const merged = [];
+    (list || []).forEach((item) => {
+      if (!item?.src || seen.has(item.src)) return;
+      seen.add(item.src);
+      merged.push(item);
+    });
+    return merged;
+  };
 
   const helperText = useMemo(
     () =>
@@ -52,6 +65,36 @@ export default function CreateBlogImageUploadPage() {
     if (draft.cover_image_url) {
       setImages([{ id: `saved-${draft.cover_image_url}`, src: draft.cover_image_url }]);
     }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loadImages = async () => {
+      setGalleryLoading(true);
+      setGalleryError("");
+      try {
+        const data = await apiGet("/images?limit=60");
+        if (!active) return;
+        const items = (data?.items || [])
+          .map((img) => ({
+            id: img.id || img.image_url,
+            src: img.image_url,
+            source: img.source || "",
+          }))
+          .filter((img) => img.src);
+        setImages((prev) => mergeUniqueImages([...items, ...prev]));
+      } catch (err) {
+        if (active) {
+          setGalleryError(err?.message || "Failed to load gallery images.");
+        }
+      } finally {
+        if (active) setGalleryLoading(false);
+      }
+    };
+    loadImages();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -76,7 +119,7 @@ export default function CreateBlogImageUploadPage() {
       }
 
       if (uploaded.length) {
-        setImages((prev) => [...uploaded, ...prev]);
+        setImages((prev) => mergeUniqueImages([...uploaded, ...prev]));
         setSelectedCover(uploaded[0].src);
       }
     } catch (err) {
@@ -228,8 +271,15 @@ export default function CreateBlogImageUploadPage() {
                   setNanoOpen(true);
                   setStage("form");
                 }}
+                loading={galleryLoading}
               />
             </div>
+
+            {galleryError ? (
+              <div className="mt-3 text-center text-[12px] text-[#DC2626]">
+                {galleryError}
+              </div>
+            ) : null}
 
             {error ? (
               <div className="mt-3 text-center text-[12px] text-[#DC2626]">

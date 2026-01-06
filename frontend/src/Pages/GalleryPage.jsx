@@ -83,7 +83,7 @@ export default function GalleryPage() {
 
         <div className="flex-1">
           <div className="px-10 pt-8 pb-12">
-            <h1 className="text-[32px] leading-[38px] font-bold text-[#111827]">
+            <h1 className="text-[36px] leading-[38px] font-bold text-[#111827]">
               Welcome to Gallery
             </h1>
             <p className="mt-3 max-w-[950px] text-[14px] leading-[22px] text-[#6B7280]">
