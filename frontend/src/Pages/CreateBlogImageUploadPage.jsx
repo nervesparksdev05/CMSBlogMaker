@@ -23,6 +23,11 @@ const qualityMap = {
   high: "high",
 };
 
+let galleryRequest = null;
+let galleryCache = null;
+let galleryCacheAt = 0;
+const GALLERY_CACHE_TTL_MS = 3000;
+
 export default function CreateBlogImageUploadPage() {
   const draft = loadDraft();
   const [nanoOpen, setNanoOpen] = useState(false);
@@ -72,8 +77,21 @@ export default function CreateBlogImageUploadPage() {
     const loadImages = async () => {
       setGalleryLoading(true);
       setGalleryError("");
+      let didStartRequest = false;
       try {
-        const data = await apiGet("/images?limit=60");
+        const now = Date.now();
+        let data;
+        if (galleryCache && now - galleryCacheAt < GALLERY_CACHE_TTL_MS) {
+          data = galleryCache;
+        } else if (galleryRequest) {
+          data = await galleryRequest;
+        } else {
+          galleryRequest = apiGet("/images?limit=60");
+          didStartRequest = true;
+          data = await galleryRequest;
+          galleryCache = data;
+          galleryCacheAt = Date.now();
+        }
         if (!active) return;
         const items = (data?.items || [])
           .map((img) => ({
@@ -88,6 +106,9 @@ export default function CreateBlogImageUploadPage() {
           setGalleryError(err?.message || "Failed to load gallery images.");
         }
       } finally {
+        if (didStartRequest) {
+          galleryRequest = null;
+        }
         if (active) setGalleryLoading(false);
       }
     };
