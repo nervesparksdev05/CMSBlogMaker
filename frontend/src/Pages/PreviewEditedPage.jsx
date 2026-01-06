@@ -1,5 +1,5 @@
 // src/Pages/PreviewEditedPage.jsx
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { marked } from "marked";
 import { getPreviewData, loadDraft, setPreviewData } from "../lib/storage.js";
 import { apiGet, apiRequest } from "../lib/api.js";
@@ -190,6 +190,16 @@ export default function PreviewEditedPage() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  const containerRef = useRef(null);
+  const [splitPercent, setSplitPercent] = useState(() => {
+    if (typeof window === "undefined") return 50;
+    const stored = Number(window.localStorage.getItem("previewSplitPercent"));
+    return Number.isFinite(stored) && stored >= 25 && stored <= 75 ? stored : 50;
+  });
+  const [isWide, setIsWide] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia("(min-width: 1024px)").matches;
+  });
 
   const normalizedMarkdown = useMemo(
     () => normalizeMarkdown(markdown),
@@ -220,6 +230,29 @@ export default function PreviewEditedPage() {
       blogId,
     });
   }, [title, coverUrl, normalizedMarkdown, previewHtml, blogId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(min-width: 1024px)");
+    const handleChange = (event) => setIsWide(event.matches);
+    if (media.addEventListener) {
+      media.addEventListener("change", handleChange);
+    } else {
+      media.addListener(handleChange);
+    }
+    return () => {
+      if (media.addEventListener) {
+        media.removeEventListener("change", handleChange);
+      } else {
+        media.removeListener(handleChange);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("previewSplitPercent", String(splitPercent));
+  }, [splitPercent]);
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -290,6 +323,30 @@ export default function PreviewEditedPage() {
     }
   };
 
+  const handleResizeStart = (event) => {
+    if (!containerRef.current || !isWide) return;
+    event.preventDefault();
+    const rect = containerRef.current.getBoundingClientRect();
+    const min = 25;
+    const max = 75;
+    const onMove = (e) => {
+      const x = e.clientX - rect.left;
+      const next = (x / rect.width) * 100;
+      const clamped = Math.min(max, Math.max(min, next));
+      setSplitPercent(clamped);
+    };
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#0B0B0F] overflow-hidden">
       <div className="sticky top-0 z-[60]">
@@ -325,8 +382,25 @@ export default function PreviewEditedPage() {
           <div className="mt-2 text-[12px] text-[#34D399]">{saveMessage}</div>
         ) : null}
 
-        <div className="mt-4 flex flex-row gap-6 flex-1 min-h-0">
-          <div className="flex-1 min-w-0 min-h-0 rounded-[16px] border border-[#1F2430] bg-[#0E1117] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] flex flex-col">
+        <div
+          ref={containerRef}
+          className={[
+            "mt-4 flex-1 min-h-0",
+            isWide ? "grid" : "flex flex-col gap-6",
+          ].join(" ")}
+          style={
+            isWide
+              ? { gridTemplateColumns: `${splitPercent}% 12px ${100 - splitPercent}%` }
+              : undefined
+          }
+        >
+          <div
+            className={[
+              "min-w-0 min-h-0 rounded-[16px] border border-[#1F2430] bg-[#0E1117] p-5",
+              "shadow-[0_0_0_1px_rgba(255,255,255,0.02)] flex flex-col",
+              isWide ? "pr-3" : "",
+            ].join(" ")}
+          >
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#7B8494]">
               Markdown
             </div>
@@ -338,7 +412,27 @@ export default function PreviewEditedPage() {
             />
           </div>
 
-          <div className="flex-1 min-w-0 min-h-0 rounded-[16px] border border-[#1F2430] bg-[#0E1117] p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] flex flex-col">
+          {isWide ? (
+            <div
+              className="relative flex items-center justify-center"
+              onPointerDown={handleResizeStart}
+              onDoubleClick={() => setSplitPercent(50)}
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize panels"
+              style={{ cursor: "col-resize", touchAction: "none" }}
+            >
+              <div className="h-[70px] w-[4px] rounded-full bg-[#1F2430]" />
+            </div>
+          ) : null}
+
+          <div
+            className={[
+              "min-w-0 min-h-0 rounded-[16px] border border-[#1F2430] bg-[#0E1117] p-5",
+              "shadow-[0_0_0_1px_rgba(255,255,255,0.02)] flex flex-col",
+              isWide ? "pl-3" : "",
+            ].join(" ")}
+          >
             <div className="text-[12px] uppercase tracking-[0.2em] text-[#7B8494]">
               Preview
             </div>
