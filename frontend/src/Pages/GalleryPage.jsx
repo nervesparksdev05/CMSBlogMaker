@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
@@ -29,14 +29,38 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadError, setUploadError] = useState("");
-  const aspectVariants = [
-    "aspect-[4/5]",
-    "aspect-[16/9]",
-    "aspect-[1/1]",
-    "aspect-[3/4]",
-    "aspect-[5/4]",
-    "aspect-[9/16]",
-  ];
+  const gridRef = useRef(null);
+  const [columnCount, setColumnCount] = useState(1);
+
+  const getColumnCount = (width, count) => {
+    let base = 1;
+    if (width >= 1280) {
+      base = 4;
+    } else if (width >= 1024) {
+      base = 3;
+    } else if (width >= 640) {
+      base = 2;
+    }
+    const total = Math.max(1, count || 1);
+    return Math.min(base, total);
+  };
+
+  const parseAspectRatio = (meta) => {
+    const ratio = meta?.aspect_ratio || meta?.aspectRatio;
+    if (typeof ratio === "string" && ratio.includes(":")) {
+      const [w, h] = ratio.split(":").map((value) => Number(value));
+      if (w > 0 && h > 0) return w / h;
+    }
+    if (typeof ratio === "number" && ratio > 0) {
+      return ratio;
+    }
+    const width = Number(meta?.width || meta?.w);
+    const height = Number(meta?.height || meta?.h);
+    if (width > 0 && height > 0) {
+      return width / height;
+    }
+    return 1;
+  };
 
   const loadImages = async (tab = activeTab) => {
     try {
@@ -61,6 +85,51 @@ export default function GalleryPage() {
   useEffect(() => {
     loadImages(activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    if (!gridRef.current) return;
+    const updateColumns = () => {
+      const width = gridRef.current?.clientWidth || window.innerWidth;
+      setColumnCount(getColumnCount(width, images.length));
+    };
+    updateColumns();
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateColumns);
+      observer.observe(gridRef.current);
+    } else {
+      window.addEventListener("resize", updateColumns);
+    }
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener("resize", updateColumns);
+      }
+    };
+  }, [images.length]);
+
+  const columns = useMemo(() => {
+    const count = Math.max(1, columnCount);
+    const cols = Array.from({ length: count }, () => ({
+      items: [],
+      height: 0,
+    }));
+    const gap = 0.12;
+    images.forEach((img) => {
+      const ratio = parseAspectRatio(img.meta);
+      const estimatedHeight = 1 / Math.max(0.4, ratio);
+      let target = cols[0];
+      for (const col of cols) {
+        if (col.height < target.height) {
+          target = col;
+        }
+      }
+      target.items.push({ ...img, ratio });
+      target.height += estimatedHeight + gap;
+    });
+    return cols.map((col) => col.items);
+  }, [images, columnCount]);
 
   const triggerUpload = () => fileRef.current?.click();
 
@@ -172,27 +241,22 @@ export default function GalleryPage() {
                 <div className="text-[13px] text-[#6B7280]">Loading images...</div>
               ) : images.length ? (
                 <div className="rounded-[18px] bg-[#050505] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.18)]">
-                  <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 [column-fill:_balance]">
-                    {images.map((img, idx) => {
-                      const aspect = aspectVariants[idx % aspectVariants.length];
-
-                      return (
-                        <div key={img.id} className="mb-3 break-inside-avoid">
-                          <div className="group relative overflow-hidden rounded-[16px] border border-white/10 bg-[#0F0F0F]">
-                            <div className={`relative w-full ${aspect}`}>
-                              <img
-                                src={img.src}
-                                alt=""
-                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                                loading="lazy"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-                            </div>
-
+                  <div ref={gridRef} className="flex gap-3">
+                    {columns.map((column, colIdx) => (
+                      <div key={`col-${colIdx}`} className="flex-1 min-w-0 flex flex-col gap-3">
+                        {column.map((img) => (
+                          <div key={img.id} className="group relative overflow-hidden rounded-[16px] border border-white/10 bg-[#0F0F0F]">
+                            <img
+                              src={img.src}
+                              alt=""
+                              className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                           </div>
-                        </div>
-                      );
-                    })}
+                        ))}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (

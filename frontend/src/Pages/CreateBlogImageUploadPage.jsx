@@ -159,16 +159,6 @@ export default function CreateBlogImageUploadPage() {
     setRefImages(mapped);
   };
 
-  const handleDeleteImage = (src) => {
-    setImages((prev) => {
-      const next = prev.filter((x) => x.src !== src);
-      if (selectedCover === src) {
-        setSelectedCover(next[0]?.src || "");
-      }
-      return next;
-    });
-  };
-
   useEffect(() => {
     if (!images.length) {
       setSelectedCover("");
@@ -304,7 +294,6 @@ export default function CreateBlogImageUploadPage() {
                 images={images.map((x) => x.src)}
                 selectedSrc={selectedCover}
                 onSelect={setSelectedCover}
-                onDelete={handleDeleteImage}
                 onUpload={(files) => handleUploadFromDevice(files)}
                 onGenerate={() => {
                   setNanoOpen(true);

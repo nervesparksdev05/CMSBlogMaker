@@ -1,5 +1,5 @@
 // GalleryCard.jsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import GalleryIcon from "../assets/gallery-icon.svg";
 import AiIcon from "../assets/ai-icon.svg";
 
@@ -17,6 +17,9 @@ export default function GalleryCard({
 }) {
   const fileRef = useRef(null);
   const menuRef = useRef(null);
+  const gridRef = useRef(null);
+  const [columnCount, setColumnCount] = useState(1);
+  const [ratios, setRatios] = useState({});
 
   const [menu, setMenu] = useState({
     open: false,
@@ -26,6 +29,30 @@ export default function GalleryCard({
   });
 
   const triggerPick = () => fileRef.current?.click();
+
+  const getColumnCount = (width, count) => {
+    let base = 1;
+    if (width >= 1280) {
+      base = 4;
+    } else if (width >= 1024) {
+      base = 3;
+    } else if (width >= 640) {
+      base = 2;
+    }
+    const total = Math.max(1, count || 1);
+    return Math.min(base, total);
+  };
+
+  const handleImageLoad = (src, event) => {
+    if (!event?.currentTarget) return;
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    if (!naturalWidth || !naturalHeight) return;
+    const ratio = naturalWidth / naturalHeight;
+    setRatios((prev) => {
+      if (prev[src]) return prev;
+      return { ...prev, [src]: ratio };
+    });
+  };
 
   const handleFiles = (e) => {
     const files = e.target.files;
@@ -63,6 +90,51 @@ export default function GalleryCard({
     };
   }, [menu.open]);
 
+  useEffect(() => {
+    if (!gridRef.current) return;
+    const updateColumns = () => {
+      const width = gridRef.current?.clientWidth || window.innerWidth;
+      setColumnCount(getColumnCount(width, images.length));
+    };
+    updateColumns();
+    let observer;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(updateColumns);
+      observer.observe(gridRef.current);
+    } else {
+      window.addEventListener("resize", updateColumns);
+    }
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      } else {
+        window.removeEventListener("resize", updateColumns);
+      }
+    };
+  }, [images.length]);
+
+  const columns = useMemo(() => {
+    const count = Math.max(1, columnCount);
+    const cols = Array.from({ length: count }, () => ({
+      items: [],
+      height: 0,
+    }));
+    const gap = 0.12;
+    (images || []).forEach((src) => {
+      const ratio = ratios[src] || 1;
+      const estimatedHeight = 1 / Math.max(0.4, ratio);
+      let target = cols[0];
+      for (const col of cols) {
+        if (col.height < target.height) {
+          target = col;
+        }
+      }
+      target.items.push({ src });
+      target.height += estimatedHeight + gap;
+    });
+    return cols.map((col) => col.items);
+  }, [images, columnCount, ratios]);
+
   const Thumb = ({ src }) => {
     const active = selectedSrc === src;
 
@@ -72,19 +144,22 @@ export default function GalleryCard({
           type="button"
           onClick={() => onSelect?.(src)}
           className={[
-            "w-full text-left rounded-[6px] border bg-white overflow-hidden relative",
-            active ? "border-[#4443E4] ring-2 ring-[#4443E4]/25" : "border-[#E5E7EB]",
+            "group relative w-full overflow-hidden rounded-[16px] border bg-[#0F0F0F] text-left",
+            active ? "border-[#4443E4] ring-2 ring-[#4443E4]/30" : "border-white/10",
           ].join(" ")}
           title="Select as cover"
         >
           <img
             src={src}
             alt=""
-            className="w-full h-[160px] object-cover"
+            onLoad={(e) => handleImageLoad(src, e)}
+            className="w-full h-auto object-cover transition-transform duration-300 group-hover:scale-[1.02]"
             draggable="false"
+            loading="lazy"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
           {active ? (
-            <div className="absolute left-2 top-2 rounded-full bg-[#4443E4] text-white text-[11px] px-2 py-[2px]">
+            <div className="absolute left-3 top-3 rounded-full bg-[#4443E4] text-white text-[11px] px-2 py-[3px]">
               Selected
             </div>
           ) : null}
@@ -97,7 +172,7 @@ export default function GalleryCard({
               e.stopPropagation();
               openMenuAt(src, e);
             }}
-            className="absolute right-2 top-2 bg-white/90 border border-[#E5E7EB] rounded-full w-8 h-8 flex items-center justify-center text-[#111827]"
+            className="absolute right-3 top-3 bg-white/90 border border-[#E5E7EB] rounded-full w-8 h-8 flex items-center justify-center text-[#111827]"
             title="Options"
           >
             ...
@@ -177,24 +252,30 @@ export default function GalleryCard({
 
       <div className="mt-6">
         {loading ? (
-          <div className="h-[140px] flex items-center justify-center">
+          <div className="h-[160px] flex items-center justify-center">
             <div className="text-[14px] text-[#6B7280]">Loading images...</div>
           </div>
         ) : !images?.length ? (
-          <div className="h-[140px] flex items-center justify-center">
+          <div className="h-[160px] flex items-center justify-center">
             <div className="text-[18px] font-semibold text-[#111827]">
               {emptyMessage}
             </div>
           </div>
         ) : (
           <div className="mt-2">
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-              {(images || []).map((src, idx) => (
-                <Thumb key={`${src}-${idx}`} src={src} />
-              ))}
+            <div className="rounded-[18px] bg-[#050505] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.18)]">
+              <div ref={gridRef} className="flex gap-3">
+                {columns.map((column, colIdx) => (
+                  <div key={`col-${colIdx}`} className="flex-1 min-w-0 flex flex-col gap-3">
+                    {column.map((item) => (
+                      <Thumb key={item.src} src={item.src} />
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="mt-2 text-[12px] text-[#6B7280]">
+            <div className="mt-3 text-[12px] text-[#6B7280]">
               Click an image to select it as the cover.
             </div>
           </div>
