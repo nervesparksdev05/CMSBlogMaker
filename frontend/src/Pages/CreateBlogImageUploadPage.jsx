@@ -206,6 +206,7 @@ export default function CreateBlogImageUploadPage() {
       quality: qualityMap[quality] || "medium",
       primary_color: primaryColor,
       source: "blog",
+      save_to_gallery: false,
     };
 
     if (!payload.title || !payload.selected_idea || !payload.prompt) {
@@ -220,7 +221,9 @@ export default function CreateBlogImageUploadPage() {
       const url = data?.image_url;
       if (!url) throw new Error("Image generation failed.");
 
-      setGeneratedImages([url]);
+      setGeneratedImages([
+        { src: url, meta: data?.meta || {}, source: "blog" },
+      ]);
       setProgress(100);
       setStage("done");
     } catch (err) {
@@ -238,22 +241,37 @@ export default function CreateBlogImageUploadPage() {
     setProgress(0);
   };
 
-  const handleDoneSave = () => {
-    const mapped = (generatedImages || []).map((src) => ({
-      id: `gen-${Date.now()}-${Math.random()}`,
-      src,
-    }));
+  const handleDoneSave = async () => {
+    const toSave = (generatedImages || []).filter((img) => img?.src);
+    if (!toSave.length) return;
 
-    if (mapped.length) {
-      setImages((prev) => [...mapped, ...prev]);
+    try {
+      setError("");
+      for (const img of toSave) {
+        await apiPost("/images/save", {
+          image_url: img.src,
+          meta: img.meta || {},
+          source: img.source || "blog",
+        });
+      }
+
+      const mapped = toSave.map((img) => ({
+        id: `gen-${Date.now()}-${Math.random()}`,
+        src: img.src,
+        source: img.source || "blog",
+      }));
+
+      setImages((prev) => mergeUniqueImages([...mapped, ...prev]));
       setSelectedCover(mapped[0].src);
-    }
 
-    setNanoOpen(false);
-    setStage("form");
-    setProgress(0);
-    setGeneratedImages([]);
-    setRefImages([]);
+      setNanoOpen(false);
+      setStage("form");
+      setProgress(0);
+      setGeneratedImages([]);
+      setRefImages([]);
+    } catch (err) {
+      setError(err?.message || "Failed to save image to gallery.");
+    }
   };
 
   const canProceed = Boolean(selectedCover);
@@ -329,7 +347,7 @@ export default function CreateBlogImageUploadPage() {
         }}
         stage={stage}
         progress={progress}
-        generatedImages={generatedImages}
+        generatedImages={(generatedImages || []).map((img) => img?.src || "")}
         onGenerateAnother={handleGenerateAnother}
         onDoneSave={handleDoneSave}
         referenceImages={refImages.map((x) => x.src)}

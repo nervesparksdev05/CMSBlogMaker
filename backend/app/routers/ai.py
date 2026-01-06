@@ -95,17 +95,19 @@ async def image_prompts(payload: ImagePromptsIn):
 async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user)):
     try:
         data = payload.model_dump()
+        save_to_gallery = data.pop("save_to_gallery", True)
         result = await generate_cover_image(data)
-        await images_col.insert_one(
-            {
-                "owner_id": user["id"],
-                "owner_name": user.get("name", ""),
-                "image_url": result.get("image_url", ""),
-                "meta": result.get("meta", {}),
-                "source": data.get("source", "nano"),
-                "created_at": datetime.utcnow(),
-            }
-        )
+        if save_to_gallery:
+            await images_col.insert_one(
+                {
+                    "owner_id": user["id"],
+                    "owner_name": user.get("name", ""),
+                    "image_url": result.get("image_url", ""),
+                    "meta": result.get("meta", {}),
+                    "source": data.get("source", "nano"),
+                    "created_at": datetime.utcnow(),
+                }
+            )
         return result
     except Exception as e:
         _raise_ai_error(e)

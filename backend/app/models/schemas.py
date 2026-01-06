@@ -220,6 +220,13 @@ class ImageGenerateIn(BaseModel):
     quality: Literal["low", "medium", "high"] = "high"
     primary_color: str = "#4443E4"
     source: Literal["blog", "nano"] = "nano"
+    save_to_gallery: bool = True
+
+
+class ImageSaveIn(BaseModel):
+    image_url: str
+    meta: dict = {}
+    source: Optional[str] = None
 
 
 class ImageOut(BaseModel):

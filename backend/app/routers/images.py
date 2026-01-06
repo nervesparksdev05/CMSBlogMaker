@@ -1,10 +1,30 @@
+from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 
 from app.models.db import images_col
+from app.models.schemas import ImageSaveIn
 from core.deps import get_current_user
 
 router = APIRouter()
 
+@router.post("/images/save", response_model=dict)
+async def save_image(payload: ImageSaveIn, user=Depends(get_current_user)):
+    doc = {
+        "owner_id": user["id"],
+        "owner_name": user.get("name", ""),
+        "image_url": payload.image_url,
+        "meta": payload.meta or {},
+        "source": payload.source,
+        "created_at": datetime.utcnow(),
+    }
+
+    existing = await images_col.find_one(
+        {"owner_id": user["id"], "image_url": payload.image_url}
+    )
+    if not existing:
+        await images_col.insert_one(doc)
+
+    return {"image_url": payload.image_url, "meta": payload.meta or {}}
 
 @router.get("/images", response_model=dict)
 async def list_images(
