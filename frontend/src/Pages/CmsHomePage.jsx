@@ -402,7 +402,7 @@ export default function CmsHomePage() {
   };
 
   const onViewDetails = (row) => {
-    navigate(`/create-blog/generated?id=${row.id}`);
+    navigate(`/create-blog/generated?id=${row.id}&view=1`);
   };
 
   return (

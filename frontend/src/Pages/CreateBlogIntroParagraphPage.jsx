@@ -16,9 +16,30 @@ import { loadDraft, saveDraft } from "../lib/storage.js";
 
 export default function CreateBlogIntroParagraphPage() {
   const draft = loadDraft();
-  const [mode, setMode] = useState(draft.intro_mode || "ai");
-  const [aiIntros, setAiIntros] = useState([]);
-  const [selectedAiIndex, setSelectedAiIndex] = useState(0);
+  const initialMode = draft.intro_mode || "ai";
+  const initialAiIntros =
+    Array.isArray(draft.intro_options) && draft.intro_options.length
+      ? draft.intro_options
+      : initialMode === "ai" && draft.intro_md
+        ? [draft.intro_md]
+        : [];
+  const initialSelectedIndex = (() => {
+    if (
+      typeof draft.intro_selected_idx === "number" &&
+      initialAiIntros[draft.intro_selected_idx]
+    ) {
+      return draft.intro_selected_idx;
+    }
+    if (draft.intro_md) {
+      const idx = initialAiIntros.indexOf(draft.intro_md);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  })();
+
+  const [mode, setMode] = useState(initialMode);
+  const [aiIntros, setAiIntros] = useState(initialAiIntros);
+  const [selectedAiIndex, setSelectedAiIndex] = useState(initialSelectedIndex);
   const [manualIntro, setManualIntro] = useState(draft.intro_md || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,6 +52,11 @@ export default function CreateBlogIntroParagraphPage() {
   useEffect(() => {
     saveDraft({ intro_md: selectedIntro, intro_mode: mode });
   }, [selectedIntro, mode]);
+
+  useEffect(() => {
+    if (!aiIntros.length) return;
+    saveDraft({ intro_options: aiIntros, intro_selected_idx: selectedAiIndex });
+  }, [aiIntros, selectedAiIndex]);
 
   const handleGenerate = async () => {
     const payload = {
@@ -62,8 +88,17 @@ export default function CreateBlogIntroParagraphPage() {
     }
   };
 
+  const handleEditAiIntro = (value) => {
+    setAiIntros((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      next[selectedAiIndex] = value;
+      return next;
+    });
+  };
+
   const AiList = (
-    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
+    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white">
       <div className="max-h-[210px] overflow-auto p-3 space-y-2">
         {aiIntros.map((t, idx) => {
           const active = idx === selectedAiIndex;
@@ -96,6 +131,55 @@ export default function CreateBlogIntroParagraphPage() {
       </div>
     </div>
   );
+
+  const AiContent = aiIntros.length ? (
+    <div className="mt-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[12px] font-medium text-[#111827]">
+          AI suggestions
+        </div>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={loading}
+          className={[
+            "h-[34px] px-4 rounded-full text-[12px] font-medium",
+            loading
+              ? "bg-[#4443E4]/60 text-white cursor-not-allowed"
+              : "bg-[#4443E4] text-white hover:opacity-95",
+          ].join(" ")}
+        >
+          {loading ? "Regenerating..." : "Regenerate"}
+        </button>
+      </div>
+
+      {AiList}
+
+      <div className="mt-4">
+        <div className="text-[12px] font-medium text-[#111827] mb-2">
+          Edit selected introduction
+        </div>
+        <textarea
+          value={aiIntros[selectedAiIndex] || ""}
+          onChange={(e) => handleEditAiIntro(e.target.value)}
+          placeholder="Edit selected introduction..."
+          className="
+            w-full
+            h-[170px]
+            rounded-[8px]
+            border border-[#E5E7EB]
+            bg-[#F3F4F6]
+            px-4 py-3
+            text-[13px]
+            text-[#111827]
+            placeholder:text-[#9CA3AF]
+            outline-none
+            resize-none
+          "
+        />
+      </div>
+    </div>
+  ) : null;
 
   const ManualBox = (
     <div className="mt-4">
@@ -153,14 +237,19 @@ export default function CreateBlogIntroParagraphPage() {
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
-              onSelect={setMode}
+              onSelect={(k) => {
+                setMode(k);
+                if (k === "manual" && !manualIntro.trim() && selectedIntro.trim()) {
+                  setManualIntro(selectedIntro);
+                }
+              }}
               centerTitle="Generate Blog Intro with AI"
               centerSubtitle="Click on this button to generate intro for your blog"
               buttonText={loading ? "Generating..." : "Generate Blog Intro"}
               onButtonClick={handleGenerate}
               buttonDisabled={loading}
             >
-              {mode === "ai" ? (aiIntros.length ? AiList : null) : ManualBox}
+              {mode === "ai" ? AiContent : ManualBox}
             </GeneratorCard>
           </div>
 

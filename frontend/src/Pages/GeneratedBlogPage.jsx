@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -15,6 +15,7 @@ import { clearDraft, saveDraft, setPreviewData } from "../lib/storage.js";
 
 export default function GeneratedBlogPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const bodyRef = useRef(null);
 
@@ -23,8 +24,14 @@ export default function GeneratedBlogPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [publishing, setPublishing] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const blogId = searchParams.get("id");
+  const viewMode =
+    searchParams.get("view") === "1" ||
+    searchParams.get("mode") === "view" ||
+    location.state?.viewOnly === true;
   const heroUrl =
     blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || "";
   const title = blog?.meta?.title || blog?.final_blog?.render?.title || "Generated Blog";
@@ -170,6 +177,24 @@ export default function GeneratedBlogPage() {
     return () => observer.disconnect();
   }, [bodyHtml, tocItems]);
 
+  useEffect(() => {
+    const updateProgress = () => {
+      const doc = document.documentElement;
+      const scrollTop = doc.scrollTop || document.body.scrollTop;
+      const maxScroll = Math.max(1, doc.scrollHeight - doc.clientHeight);
+      const pct = Math.min(1, Math.max(0, scrollTop / maxScroll));
+      setScrollProgress(pct);
+      setShowScrollTop(scrollTop > 220);
+    };
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, []);
+
   const scrollTo = (id) => {
     const container = bodyRef.current;
     const el =
@@ -240,6 +265,12 @@ export default function GeneratedBlogPage() {
     return parts.join(" - ");
   }, [blog?.created_at, readTime]);
 
+  const ringSize = 46;
+  const ringStroke = 3;
+  const ringRadius = (ringSize - ringStroke) / 2;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringOffset = ringCircumference * (1 - scrollProgress);
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <div className="sticky top-0 z-[60]">
@@ -258,9 +289,11 @@ export default function GeneratedBlogPage() {
             <div className="max-w-[1200px] mx-auto">
               <BackToDashBoardButton />
 
-              <div className="mt-4">
-                <IncreasingDotsInterface />
-              </div>
+              {!viewMode ? (
+                <div className="mt-4">
+                  <IncreasingDotsInterface />
+                </div>
+              ) : null}
 
               {loading ? (
                 <div className="mt-6 text-[14px] text-[#6B7280]">Loading blog...</div>
@@ -427,6 +460,66 @@ export default function GeneratedBlogPage() {
           </div>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Scroll to top"
+        className={[
+          "fixed bottom-8 right-10 z-[70]",
+          "w-[46px] h-[46px] rounded-full",
+          "bg-white border border-[#E5E7EB] shadow-md",
+          "flex items-center justify-center",
+          "transition-all duration-200",
+          showScrollTop
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 pointer-events-none translate-y-2",
+        ].join(" ")}
+      >
+        <svg
+          width={ringSize}
+          height={ringSize}
+          viewBox={`0 0 ${ringSize} ${ringSize}`}
+          className="absolute inset-0"
+        >
+          <circle
+            cx={ringSize / 2}
+            cy={ringSize / 2}
+            r={ringRadius}
+            fill="none"
+            stroke="#E5E7EB"
+            strokeWidth={ringStroke}
+          />
+          <circle
+            cx={ringSize / 2}
+            cy={ringSize / 2}
+            r={ringRadius}
+            fill="none"
+            stroke="#4443E4"
+            strokeWidth={ringStroke}
+            strokeLinecap="round"
+            strokeDasharray={ringCircumference}
+            strokeDashoffset={ringOffset}
+            transform={`rotate(-90 ${ringSize / 2} ${ringSize / 2})`}
+          />
+        </svg>
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          className="relative"
+        >
+          <path
+            d="M12 5L6 11M12 5L18 11M12 5V19"
+            stroke="#111827"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
     </div>
   );
 }

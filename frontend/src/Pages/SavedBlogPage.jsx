@@ -388,7 +388,7 @@ export default function SavedBlogPage() {
   const badgeText = useMemo(() => `${rows.length} Blogs`, [rows.length]);
 
   const onViewDetails = (row) => {
-    navigate(`/create-blog/generated?id=${row.id}`);
+    navigate(`/create-blog/generated?id=${row.id}&view=1`);
   };
 
   return (

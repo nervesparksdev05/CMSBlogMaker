@@ -19,9 +19,30 @@ export default function CreateBlogTitlePage() {
   const navigate = useNavigate();
   const draft = loadDraft();
 
-  const [mode, setMode] = useState(draft.title_mode || "ai");
-  const [aiTitles, setAiTitles] = useState([]);
-  const [selectedAiIndex, setSelectedAiIndex] = useState(0);
+  const initialMode = draft.title_mode || "ai";
+  const initialAiTitles =
+    Array.isArray(draft.title_options) && draft.title_options.length
+      ? draft.title_options
+      : initialMode === "ai" && draft.title
+        ? [draft.title]
+        : [];
+  const initialSelectedIndex = (() => {
+    if (
+      typeof draft.title_selected_idx === "number" &&
+      initialAiTitles[draft.title_selected_idx]
+    ) {
+      return draft.title_selected_idx;
+    }
+    if (draft.title) {
+      const idx = initialAiTitles.indexOf(draft.title);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  })();
+
+  const [mode, setMode] = useState(initialMode);
+  const [aiTitles, setAiTitles] = useState(initialAiTitles);
+  const [selectedAiIndex, setSelectedAiIndex] = useState(initialSelectedIndex);
   const [manualTitle, setManualTitle] = useState(draft.title || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -34,6 +55,11 @@ export default function CreateBlogTitlePage() {
   useEffect(() => {
     saveDraft({ title: selectedTitle, title_mode: mode });
   }, [selectedTitle, mode]);
+
+  useEffect(() => {
+    if (!aiTitles.length) return;
+    saveDraft({ title_options: aiTitles, title_selected_idx: selectedAiIndex });
+  }, [aiTitles, selectedAiIndex]);
 
   const handleGenerate = async () => {
     const payload = {
@@ -64,8 +90,17 @@ export default function CreateBlogTitlePage() {
     }
   };
 
+  const handleEditAiTitle = (value) => {
+    setAiTitles((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      next[selectedAiIndex] = value;
+      return next;
+    });
+  };
+
   const AiList = (
-    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
+    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white">
       <div className="max-h-[180px] overflow-auto p-3 space-y-2">
         {aiTitles.map((t, idx) => {
           const active = idx === selectedAiIndex;
@@ -96,6 +131,55 @@ export default function CreateBlogTitlePage() {
       </div>
     </div>
   );
+
+  const AiContent = aiTitles.length ? (
+    <div className="mt-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[12px] font-medium text-[#111827]">
+          AI suggestions
+        </div>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={loading}
+          className={[
+            "h-[34px] px-4 rounded-full text-[12px] font-medium",
+            loading
+              ? "bg-[#4443E4]/60 text-white cursor-not-allowed"
+              : "bg-[#4443E4] text-white hover:opacity-95",
+          ].join(" ")}
+        >
+          {loading ? "Regenerating..." : "Regenerate"}
+        </button>
+      </div>
+
+      {AiList}
+
+      <div className="mt-4">
+        <div className="text-[12px] font-medium text-[#111827] mb-2">
+          Edit selected title
+        </div>
+        <textarea
+          value={aiTitles[selectedAiIndex] || ""}
+          onChange={(e) => handleEditAiTitle(e.target.value)}
+          placeholder="Edit selected title..."
+          className="
+            w-full
+            h-[120px]
+            rounded-[8px]
+            border border-[#E5E7EB]
+            bg-[#F3F4F6]
+            px-4 py-3
+            text-[13px]
+            text-[#111827]
+            placeholder:text-[#9CA3AF]
+            outline-none
+            resize-none
+          "
+        />
+      </div>
+    </div>
+  ) : null;
 
   const ManualBox = (
     <div className="mt-4">
@@ -155,14 +239,19 @@ export default function CreateBlogTitlePage() {
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
-              onSelect={(k) => setMode(k)}
+              onSelect={(k) => {
+                setMode(k);
+                if (k === "manual" && !manualTitle.trim() && selectedTitle.trim()) {
+                  setManualTitle(selectedTitle);
+                }
+              }}
               centerTitle="Generate Blog Title with AI"
               centerSubtitle="Click on this button to generate title for your blog"
               buttonText={loading ? "Generating..." : "Generate Blog Titles"}
               onButtonClick={handleGenerate}
               buttonDisabled={loading}
             >
-              {mode === "ai" ? (aiTitles.length ? AiList : null) : ManualBox}
+              {mode === "ai" ? AiContent : ManualBox}
             </GeneratorCard>
           </div>
 
