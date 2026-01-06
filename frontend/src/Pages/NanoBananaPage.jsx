@@ -41,7 +41,9 @@ export default function NanoBananaPage() {
   const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F2B233");
   const [generatedImages, setGeneratedImages] = useState([]);
+  const [pendingImage, setPendingImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
 
@@ -71,6 +73,7 @@ export default function NanoBananaPage() {
     setQuality("standard");
     setPrimaryColor("#F2B233");
     setReferenceFiles([]);
+    setPendingImage(null);
     setError("");
   };
 
@@ -95,18 +98,17 @@ export default function NanoBananaPage() {
         quality: quality === "high" ? "high" : "medium",
         primary_color: primaryColor,
         source: "nano",
+        save_to_gallery: false,
       });
       if (data?.image_url) {
         setLoadError("");
-        setGeneratedImages((prev) => [
-          {
-            id: `${Date.now()}-${Math.random()}`,
-            src: data.image_url,
-            title: "Nano Banana",
-            subtitle: data?.meta?.prompt || "",
-          },
-          ...prev,
-        ]);
+        setPendingImage({
+          id: `pending-${Date.now()}-${Math.random()}`,
+          src: data.image_url,
+          title: "Nano Banana",
+          subtitle: data?.meta?.prompt || "",
+          meta: data?.meta || {},
+        });
       }
     } catch (err) {
       setError(err?.message || "Failed to generate image.");
@@ -164,6 +166,36 @@ export default function NanoBananaPage() {
       ignore = true;
     };
   }, []);
+
+  const handleSavePending = async () => {
+    if (!pendingImage?.src || saving) return;
+    try {
+      setSaving(true);
+      setError("");
+      await apiPost("/images/save", {
+        image_url: pendingImage.src,
+        meta: pendingImage.meta || {},
+        source: "nano",
+      });
+      setGeneratedImages((prev) => {
+        const next = prev.filter((img) => img.src !== pendingImage.src);
+        return [
+          {
+            id: `saved-${Date.now()}-${Math.random()}`,
+            src: pendingImage.src,
+            title: pendingImage.title || "Nano Banana",
+            subtitle: pendingImage.subtitle || "",
+          },
+          ...next,
+        ];
+      });
+      setPendingImage(null);
+    } catch (err) {
+      setError(err?.message || "Failed to save image to gallery.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
@@ -384,6 +416,41 @@ export default function NanoBananaPage() {
                 ) : null}
               </div>
             </div>
+
+            {pendingImage ? (
+              <div className="mt-8 w-full rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm">
+                <div className="px-7 py-6">
+                  <div className="text-[18px] font-semibold text-[#111827]">
+                    Image Generation is Completed
+                  </div>
+                  <div className="mt-2 text-[13px] text-[#6B7280]">
+                    Review the image below. You can regenerate with a better prompt or save it to the gallery.
+                  </div>
+
+                  <div className="mt-5 max-w-[360px]">
+                    <NanoBananaTemplateCard image={pendingImage} />
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setPendingImage(null)}
+                      className="h-[40px] px-6 rounded-[999px] bg-white border border-[#D1D5DB] text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+                    >
+                      Generate another Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePending}
+                      disabled={saving}
+                      className="h-[40px] px-6 rounded-[999px] bg-[#4443E4] text-white text-[13px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Done & Save Gallery"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
 
             <div className="mt-10">
               <h2 className="text-[22px] font-semibold text-[#111827]">

@@ -29,6 +29,14 @@ export default function GalleryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [uploadError, setUploadError] = useState("");
+  const aspectVariants = [
+    "aspect-[4/5]",
+    "aspect-[16/9]",
+    "aspect-[1/1]",
+    "aspect-[3/4]",
+    "aspect-[5/4]",
+    "aspect-[9/16]",
+  ];
 
   const loadImages = async (tab = activeTab) => {
     try {
@@ -163,20 +171,29 @@ export default function GalleryPage() {
               {loading ? (
                 <div className="text-[13px] text-[#6B7280]">Loading images...</div>
               ) : images.length ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {images.map((img) => (
-                    <div
-                      key={img.id}
-                      className="rounded-[14px] bg-white border border-[#E5E7EB] overflow-hidden"
-                    >
-                      <img
-                        src={img.src}
-                        alt=""
-                        className="w-full h-[260px] object-cover"
-                        loading="lazy"
-                      />
-                    </div>
-                  ))}
+                <div className="rounded-[18px] bg-[#050505] p-4 shadow-[0_18px_36px_rgba(0,0,0,0.18)]">
+                  <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-3 [column-fill:_balance]">
+                    {images.map((img, idx) => {
+                      const aspect = aspectVariants[idx % aspectVariants.length];
+
+                      return (
+                        <div key={img.id} className="mb-3 break-inside-avoid">
+                          <div className="group relative overflow-hidden rounded-[16px] border border-white/10 bg-[#0F0F0F]">
+                            <div className={`relative w-full ${aspect}`}>
+                              <img
+                                src={img.src}
+                                alt=""
+                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                            </div>
+
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="text-[13px] text-[#6B7280]">No images available.</div>
