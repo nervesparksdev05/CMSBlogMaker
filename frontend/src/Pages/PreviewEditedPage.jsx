@@ -26,6 +26,146 @@ marked.setOptions({
   gfm: true,
 });
 
+const COVER_MD_RE = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/i;
+const COVER_IMG_SRC_RE = /<img[^>]+src=["']([^"']+)["'][^>]*>/i;
+const COVER_IMG_LINE_RE = /^<img\b[^>]*>\s*$/i;
+const COVER_IMG_P_RE = /^<p>\s*<img\b[^>]*>\s*<\/p>\s*$/i;
+
+const normalizeCoverSyntax = (content) => {
+  if (!content) return "";
+  let next = String(content);
+  next = next.replace(
+    /\[\!\[([^\]]*)\]\(([^)\s]+(?:\s+"[^"]*")?)\)\](?!\s*\()/g,
+    "![$1]($2)"
+  );
+  next = next.replace(/\!\[([^\]]*)\]\s*\(([^)\s]+(?:\s+"[^"]*")?)\)/g, "![$1]($2)");
+  return next;
+};
+
+const normalizeMarkdown = (content) => {
+  if (!content) return "";
+  let next = normalizeCoverSyntax(content);
+  if (/<[a-z][\s\S]*>/i.test(next)) {
+    next = next.replace(
+      /<p>\s*!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)\s*<\/p>/gi,
+      (_, alt, url) => {
+        const safeAlt = String(alt || "").replace(/"/g, "&quot;");
+        return `<p><img src="${url}" alt="${safeAlt}" /></p>`;
+      }
+    );
+  }
+  return next;
+};
+
+const getImgSrcFromTag = (tag) => {
+  if (!tag) return "";
+  const match = tag.match(COVER_IMG_SRC_RE);
+  return match?.[1] || "";
+};
+
+const ensureWidthAttr = (tag) => {
+  if (!tag || !/^<img\b/i.test(tag)) return tag;
+  if (/\bwidth\s*=\s*["']/.test(tag)) return tag;
+  if (tag.endsWith("/>")) {
+    return tag.replace(/\s*\/>$/, ' width="100%" />');
+  }
+  if (tag.endsWith(">")) {
+    return tag.replace(/\s*>$/, ' width="100%">');
+  }
+  return `${tag} width="100%"`;
+};
+
+const extractCoverLine = (content) => {
+  const normalized = normalizeCoverSyntax(content);
+  const lines = normalized.split(/\r?\n/);
+  let idx = 0;
+  while (idx < lines.length && lines[idx].trim() === "") {
+    idx += 1;
+  }
+  if (idx < lines.length && lines[idx].trim().startsWith("#")) {
+    idx += 1;
+    while (idx < lines.length && lines[idx].trim() === "") {
+      idx += 1;
+    }
+  }
+  let coverLine = "";
+  let coverUrl = "";
+  if (idx < lines.length) {
+    const rawLine = lines[idx].trim();
+    let imgLine = "";
+    if (COVER_IMG_P_RE.test(rawLine)) {
+      imgLine = rawLine.replace(/^<p>\s*/i, "").replace(/\s*<\/p>\s*$/i, "");
+    } else if (COVER_IMG_LINE_RE.test(rawLine)) {
+      imgLine = rawLine;
+    }
+    if (imgLine) {
+      coverLine = ensureWidthAttr(imgLine);
+      coverUrl = getImgSrcFromTag(imgLine);
+      lines.splice(idx, 1);
+      if (lines[idx] === "") {
+        lines.splice(idx, 1);
+      }
+      return { coverLine, coverUrl, body: lines.join("\n") };
+    }
+    const mdMatch = rawLine.match(COVER_MD_RE);
+    if (mdMatch && rawLine.replace(COVER_MD_RE, "").trim() === "") {
+      coverUrl = mdMatch[2];
+      const alt = mdMatch[1] || "Cover";
+      coverLine = `<img src="${coverUrl}" alt="${alt}" width="100%" />`;
+      lines.splice(idx, 1);
+      if (lines[idx] === "") {
+        lines.splice(idx, 1);
+      }
+    }
+  }
+  return { coverLine, coverUrl, body: lines.join("\n") };
+};
+
+const insertCoverLine = (body, coverLine) => {
+  if (!coverLine) return body || "";
+  const lines = (body || "").split(/\r?\n/);
+  let idx = 0;
+  while (idx < lines.length && lines[idx].trim() === "") {
+    idx += 1;
+  }
+  if (idx < lines.length && lines[idx].trim().startsWith("#")) {
+    const before = lines.slice(0, idx + 1);
+    const after = lines.slice(idx + 1);
+    while (after.length && after[0].trim() === "") {
+      after.shift();
+    }
+    return [...before, coverLine, "", ...after].join("\n");
+  }
+  while (lines.length && lines[0].trim() === "") {
+    lines.shift();
+  }
+  return [coverLine, "", ...lines].join("\n");
+};
+
+const createEditableMarkdown = (content, heroUrl) => {
+  const { coverLine, coverUrl, body } = extractCoverLine(content || "");
+  let finalCoverUrl = coverUrl || "";
+  if (!finalCoverUrl && heroUrl && heroUrl !== DEFAULT_HERO) {
+    finalCoverUrl = heroUrl;
+  }
+  let finalCoverLine = coverLine;
+  if (!finalCoverLine && finalCoverUrl) {
+    finalCoverLine = `<img src="${finalCoverUrl}" alt="Cover" width="100%" />`;
+  }
+  finalCoverLine = ensureWidthAttr(finalCoverLine);
+  const markdown = finalCoverLine ? insertCoverLine(body, finalCoverLine) : body || content || "";
+  return { markdown, coverUrl: finalCoverUrl };
+};
+
+const extractCoverUrl = (content) => {
+  if (!content) return "";
+  const head = content.slice(0, 1200);
+  const imgMatch = head.match(COVER_IMG_SRC_RE);
+  if (imgMatch?.[1]) return imgMatch[1];
+  const mdMatch = head.match(COVER_MD_RE);
+  return mdMatch?.[2] || "";
+};
+
 export default function PreviewEditedPage() {
   const initial = useMemo(() => {
     const saved = getPreviewData();
@@ -38,29 +178,28 @@ export default function PreviewEditedPage() {
     };
   }, []);
 
+  const initialEditable = useMemo(
+    () => createEditableMarkdown(initial.markdown, initial.heroUrl),
+    [initial]
+  );
+
   const [title] = useState(initial.title);
-  const [markdown, setMarkdown] = useState(initial.markdown);
+  const [markdown, setMarkdown] = useState(initialEditable.markdown);
   const [blogId] = useState(initial.blogId);
   const [blogData, setBlogData] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
 
-  const previewHtml = useMemo(
-    () => marked.parse(markdown || ""),
+  const normalizedMarkdown = useMemo(
+    () => normalizeMarkdown(markdown),
     [markdown]
   );
 
-  const extractCoverUrl = (content) => {
-    if (!content) return "";
-    const coverMatch = content.match(/!\[cover[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/i);
-    if (coverMatch?.[1]) return coverMatch[1];
-    const head = content.slice(0, 800);
-    const mdMatch = head.match(/!\[[^\]]*]\(([^)\s]+)(?:\s+"[^"]*")?\)/);
-    if (mdMatch?.[1]) return mdMatch[1];
-    const htmlMatch = head.match(/<img[^>]+src=["']([^"']+)["']/i);
-    return htmlMatch?.[1] || "";
-  };
+  const previewHtml = useMemo(
+    () => marked.parse(normalizedMarkdown || ""),
+    [normalizedMarkdown]
+  );
 
   const extractTitleFromMarkdown = (content) => {
     if (!content) return "";
@@ -68,11 +207,19 @@ export default function PreviewEditedPage() {
     return match?.[1]?.trim() || "";
   };
 
-  const coverUrl = useMemo(() => extractCoverUrl(markdown), [markdown]);
+  const coverUrl = useMemo(() => {
+    return extractCoverUrl(normalizedMarkdown) || initialEditable.coverUrl || "";
+  }, [normalizedMarkdown, initialEditable.coverUrl]);
 
   useEffect(() => {
-    setPreviewData({ title, heroUrl: coverUrl, markdown, html: previewHtml, blogId });
-  }, [title, coverUrl, markdown, previewHtml, blogId]);
+    setPreviewData({
+      title,
+      heroUrl: coverUrl,
+      markdown: normalizedMarkdown,
+      html: previewHtml,
+      blogId,
+    });
+  }, [title, coverUrl, normalizedMarkdown, previewHtml, blogId]);
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -100,7 +247,7 @@ export default function PreviewEditedPage() {
       setSaving(true);
       setSaveError("");
       setSaveMessage("");
-      const extractedTitle = extractTitleFromMarkdown(markdown);
+      const extractedTitle = extractTitleFromMarkdown(normalizedMarkdown);
       const resolvedTitle =
         extractedTitle ||
         blogData?.meta?.title ||
@@ -121,7 +268,7 @@ export default function PreviewEditedPage() {
         final_blog: {
           ...blogData.final_blog,
           render: nextRender,
-          markdown,
+          markdown: normalizedMarkdown,
           html: previewHtml,
         },
       };

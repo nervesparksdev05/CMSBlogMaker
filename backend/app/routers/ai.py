@@ -10,7 +10,7 @@ from app.services.gemini_service import (
     gen_topic_ideas, gen_titles, gen_intros, gen_outlines, gen_image_prompts, gen_final_blog_markdown
 )
 from app.services.image_service import generate_cover_image
-from app.services.markdown_service import markdown_to_html
+from app.services.markdown_service import markdown_to_html, normalize_markdown
 from app.models.db import images_col
 from core.deps import get_current_user
 
@@ -123,6 +123,7 @@ async def blog_generate(payload: GenerateBlogIn):
     """
     try:
         markdown = await gen_final_blog_markdown(payload.model_dump())
+        markdown = normalize_markdown(markdown)
         html = markdown_to_html(markdown)
 
         # Minimal structured render for convenience (frontend can just render markdown too)
