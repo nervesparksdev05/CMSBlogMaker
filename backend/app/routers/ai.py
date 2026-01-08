@@ -11,7 +11,7 @@ from app.services.gemini_service import (
 )
 from app.services.image_service import generate_cover_image
 from app.services.markdown_service import markdown_to_html, normalize_markdown
-from app.models.db import images_col
+from app.models.firestore_db import create_image
 from core.deps import get_current_user
 
 router = APIRouter()
@@ -98,7 +98,7 @@ async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user
         save_to_gallery = data.pop("save_to_gallery", True)
         result = await generate_cover_image(data)
         if save_to_gallery:
-            await images_col.insert_one(
+            create_image(
                 {
                     "owner_id": user["id"],
                     "owner_name": user.get("name", ""),

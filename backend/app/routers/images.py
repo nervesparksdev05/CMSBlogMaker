@@ -1,7 +1,7 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 
-from app.models.db import images_col
+from app.models.firestore_db import create_image, get_image_by_url, query_images, count_images
 from app.models.schemas import ImageSaveIn
 from core.deps import get_current_user
 
@@ -18,11 +18,9 @@ async def save_image(payload: ImageSaveIn, user=Depends(get_current_user)):
         "created_at": datetime.utcnow(),
     }
 
-    existing = await images_col.find_one(
-        {"owner_id": user["id"], "image_url": payload.image_url}
-    )
+    existing = get_image_by_url(user["id"], payload.image_url)
     if not existing:
-        await images_col.insert_one(doc)
+        create_image(doc)
 
     return {"image_url": payload.image_url, "meta": payload.meta or {}}
 
@@ -50,14 +48,15 @@ async def list_images(
             ]
         else:
             q["source"] = source
-    total = await images_col.count_documents(q)
-
-    cursor = images_col.find(q).sort("created_at", -1).skip(skip).limit(limit)
+    
+    total = count_images(q)
+    images = query_images(q, order_by="created_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    
     items = []
-    async for img in cursor:
+    for img in images:
         items.append(
             {
-                "id": str(img["_id"]),
+                "id": img.get("id", ""),
                 "image_url": img.get("image_url", ""),
                 "meta": img.get("meta", {}),
                 "source": img.get("source", None),

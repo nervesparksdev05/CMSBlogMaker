@@ -6,13 +6,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
-from app.models.db import init_indexes
 from app.routers import auth, ai, blogs, admin, images
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_indexes()
+    """
+    Application lifespan manager.
+    Firestore connection is initialized on first use via get_db().
+    """
     yield
 
 

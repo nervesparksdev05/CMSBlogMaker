@@ -80,7 +80,7 @@ class FinalBlog(BaseModel):
     What preview shows side-by-side:
     - html (left)
     - markdown (right)
-    And what we store in MongoDB.
+    And what we store in Firestore.
     """
     render: BlogRender
     markdown: str

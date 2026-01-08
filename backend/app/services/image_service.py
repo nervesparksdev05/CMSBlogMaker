@@ -24,9 +24,38 @@ def _get_client() -> genai.Client:
     return _client
 
 def _get_storage_client() -> storage.Client:
+    """
+    Get Google Cloud Storage client.
+    Uses GOOGLE_APPLICATION_CREDENTIALS for GCS bucket access.
+    This is separate from FIREBASE_CREDENTIALS_PATH used for Firestore.
+    """
     global _storage_client
     if _storage_client is None:
-        _storage_client = storage.Client()
+        import os
+        import logging
+        from google.oauth2 import service_account
+        
+        logger = logging.getLogger(__name__)
+        
+        # Use GOOGLE_APPLICATION_CREDENTIALS for GCS bucket (separate from Firestore credentials)
+        creds_path = None
+        
+        # Priority: GOOGLE_APPLICATION_CREDENTIALS environment variable
+        if os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+            creds_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        # Fallback: settings.GOOGLE_APPLICATION_CREDENTIALS
+        elif settings.GOOGLE_APPLICATION_CREDENTIALS and os.path.exists(settings.GOOGLE_APPLICATION_CREDENTIALS):
+            creds_path = settings.GOOGLE_APPLICATION_CREDENTIALS
+        
+        if creds_path and os.path.exists(creds_path):
+            credentials = service_account.Credentials.from_service_account_file(creds_path)
+            _storage_client = storage.Client(credentials=credentials, project=settings.FIREBASE_PROJECT_ID)
+            logger.info(f"GCS Storage client initialized with credentials from: {creds_path}")
+        else:
+            # Fallback: Use default credentials (for Google Cloud environments)
+            # This will use GOOGLE_APPLICATION_CREDENTIALS environment variable if set
+            _storage_client = storage.Client(project=settings.FIREBASE_PROJECT_ID)
+            logger.info("GCS Storage client initialized with default credentials")
     return _storage_client
 
 def _require_bucket() -> str:
