@@ -252,6 +252,7 @@ class GenerateBlogIn(BaseModel):
     outline: List[str]
 
     cover_image_url: str = ""
+    primary_color: str = "#4443E4"  # Color code theme for high quality generation
 
 
 class OptionsOut(BaseModel):

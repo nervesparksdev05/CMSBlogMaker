@@ -161,6 +161,14 @@ async def gen_image_prompts(payload: dict) -> List[str]:
 # Final blog generation returns ONE markdown (not 5)
 async def gen_final_blog_markdown(payload: dict) -> str:
     refs = payload.get("reference_links", "")
+    primary_color = payload.get("primary_color", "#4443E4")
+    creativity = payload.get("creativity", "")
+    
+    # Include color theme in prompt when creativity is high quality
+    color_instruction = ""
+    if creativity and "high" in creativity.lower():
+        color_instruction = f"\nColor theme: Use the primary color {primary_color} as a design theme throughout the content. Incorporate this color scheme in descriptions, visual elements, and overall aesthetic when relevant."
+    
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -173,6 +181,7 @@ async def gen_final_blog_markdown(payload: dict) -> str:
     Intro (markdown): {payload['intro_md']}
     Outline headings: {payload['outline']}
     Cover image url: {payload.get('cover_image_url','')}
+    Primary color code: {primary_color}{color_instruction}
 
     Write a complete blog post in Markdown.
     Rules:

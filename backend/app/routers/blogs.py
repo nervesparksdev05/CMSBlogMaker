@@ -374,3 +374,26 @@ async def reject_blog(
     }
     update_blog(blog_id, updates)
     return {"ok": True, "status": "saved", "feedback": feedback}
+
+
+# ---------------- CHANGE BLOG STATUS TO DRAFT ---------------- 
+@router.post("/blogs/{blog_id}/draft", response_model=dict)  # POST /blogs/{blog_id}/draft
+async def change_to_draft(blog_id: str, user=Depends(get_current_user)):
+    """Change a published blog back to draft (saved) status"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    if b.get("owner_id") != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+    
+    if b.get("status") != "published":
+        raise HTTPException(status_code=400, detail="Blog is not published")
+
+    now = datetime.utcnow()
+    updates = {
+        "status": "saved",
+        "updated_at": now,
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "status": "saved"}

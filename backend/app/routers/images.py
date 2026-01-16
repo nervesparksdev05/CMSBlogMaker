@@ -1,5 +1,5 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 
 from app.models.firestore_db import create_image, get_image_by_url, query_images, count_images
 from app.models.schemas import ImageSaveIn
@@ -65,3 +65,22 @@ async def list_images(
         )
 
     return {"items": items, "page": page, "limit": limit, "total": total}
+
+@router.delete("/images/{image_id}", response_model=dict)
+async def delete_image(image_id: str, user=Depends(get_current_user)):
+    """Delete an image by ID (only if owned by the user)"""
+    from app.models.firestore_db import get_images_collection
+    
+    images_col = get_images_collection()
+    doc_ref = images_col.document(image_id)
+    doc = doc_ref.get()
+    
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    image_data = doc.to_dict()
+    if image_data.get("owner_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed to delete this image")
+    
+    doc_ref.delete()
+    return {"ok": True, "image_id": image_id}
