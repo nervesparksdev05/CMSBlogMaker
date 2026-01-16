@@ -42,19 +42,46 @@ async def save_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
     return {"blog_id": blog_id, "status": "saved"}
 
 # ---------------- LIST (MY BLOGS) ----------------
-@router.get("/blog", response_model=dict)  # GET /blogs?page=1&limit=10
+@router.get("/blog", response_model=dict)  # GET /blog?page=1&limit=10&search=query
 async def list_my_blogs(
     user=Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=5, le=50),
+    search: str = Query("", description="Search query to filter blogs by title, language, tone, creativity, author, or status"),
 ):
     skip = (page - 1) * limit
     q = {"owner_id": user["id"]}
-    total = count_blogs(q)
-
-    blogs = query_blogs(q, order_by="created_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    
+    # Fetch all blogs for the user (we'll filter by search in Python since Firestore doesn't support full-text search)
+    # For better performance with large datasets, consider using a search service like Algolia or Elasticsearch
+    all_blogs = query_blogs(q, order_by="created_at", order_direction="DESCENDING", skip=0, limit=1000)
+    
+    # Apply search filter if provided
+    search_lower = search.strip().lower()
+    if search_lower:
+        filtered_blogs = []
+        for b in all_blogs:
+            title = (b.get("meta") or {}).get("title", "") or (b.get("final_blog") or {}).get("render", {}).get("title", "")
+            language = (b.get("meta") or {}).get("language", "English")
+            tone = (b.get("meta") or {}).get("tone", "")
+            creativity = (b.get("meta") or {}).get("creativity", "")
+            created_by = b.get("owner_name", "")
+            status = b.get("status", "saved")
+            
+            # Search in multiple fields
+            searchable_text = f"{title} {language} {tone} {creativity} {created_by} {status}".lower()
+            if search_lower in searchable_text:
+                filtered_blogs.append(b)
+        all_blogs = filtered_blogs
+    
+    # Calculate total after filtering
+    total = len(all_blogs)
+    
+    # Apply pagination
+    paginated_blogs = all_blogs[skip:skip + limit]
+    
     items = []
-    for b in blogs:
+    for b in paginated_blogs:
         items.append(
             {
                 "id": b.get("id", ""),
