@@ -115,6 +115,11 @@ class AdminReview(BaseModel):
     feedback: str = ""
 
 
+class BlogCommentIn(BaseModel):
+    """Schema for adding a comment to a blog"""
+    comment: str
+
+
 class BlogCreateIn(BaseModel):
     """
     Store only final blog + final metadata.

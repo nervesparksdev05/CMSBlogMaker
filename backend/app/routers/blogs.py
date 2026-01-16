@@ -9,7 +9,7 @@ from app.models.firestore_db import (
     query_blogs, count_blogs, create_image
 )
 from core.deps import get_current_user, require_admin
-from app.models.schemas import BlogCreateIn, BlogOut
+from app.models.schemas import BlogCreateIn, BlogOut, BlogCommentIn
 from app.services.image_service import upload_bytes_to_gcs
 
 router = APIRouter()
@@ -374,6 +374,45 @@ async def reject_blog(
     }
     update_blog(blog_id, updates)
     return {"ok": True, "status": "saved", "feedback": feedback}
+
+
+# ---------------- ADMIN: ADD COMMENT TO BLOG ---------------- 
+@router.post("/admin/blogs/{blog_id}/comment", response_model=dict)  # POST /admin/blogs/{blog_id}/comment
+async def add_blog_comment(
+    blog_id: str,
+    payload: BlogCommentIn,
+    admin=Depends(require_admin),
+):
+    """Add a comment/feedback to a blog (admin only)"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    now = datetime.utcnow()
+    # Update the feedback field with the comment
+    # If there's existing feedback, append the new comment
+    existing_feedback = (b.get("admin_review") or {}).get("feedback", "")
+    new_feedback = payload.comment.strip()
+    
+    if existing_feedback and new_feedback:
+        # Append new comment with separator
+        updated_feedback = f"{existing_feedback}\n\n--- {admin.get('name', 'Admin')} ({now.strftime('%Y-%m-%d %H:%M:%S')}) ---\n{new_feedback}"
+    else:
+        updated_feedback = new_feedback
+    
+    updates = {
+        "updated_at": now,
+        "admin_review.feedback": updated_feedback,
+    }
+    
+    # If blog is pending and hasn't been reviewed yet, update reviewed_by info
+    admin_review = b.get("admin_review") or {}
+    if not admin_review.get("reviewed_by"):
+        updates["admin_review.reviewed_by"] = admin["id"]
+        updates["admin_review.reviewed_by_name"] = admin["name"]
+    
+    update_blog(blog_id, updates)
+    return {"ok": True, "comment": new_feedback}
 
 
 # ---------------- CHANGE BLOG STATUS TO DRAFT ---------------- 
