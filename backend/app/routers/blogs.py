@@ -260,6 +260,42 @@ async def list_pending_blogs(
     return {"items": items, "page": page, "limit": limit, "total": total}
 
 
+# ---------------- ADMIN: LIST PUBLISHED BLOGS ---------------- 
+@router.get("/admin/blogs/published", response_model=dict)  # GET /admin/blogs/published?page=1&limit=10
+async def list_published_blogs(
+    admin=Depends(require_admin),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=5, le=50),
+):
+    """List all published/approved blogs"""
+    skip = (page - 1) * limit
+    q = {"status": "published"}
+    total = count_blogs(q)
+
+    blogs = query_blogs(q, order_by="published_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    items = []
+    for b in blogs:
+        items.append(
+            {
+                "id": b.get("id", ""),
+                "title": (b.get("meta") or {}).get("title", "")
+                or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "language": (b.get("meta") or {}).get("language", "English"),
+                "tone": (b.get("meta") or {}).get("tone", ""),
+                "creativity": (b.get("meta") or {}).get("creativity", ""),
+                "created_by": b.get("owner_name", ""),
+                "owner_id": b.get("owner_id", ""),
+                "created_at": b.get("created_at"),
+                "published_at": b.get("published_at"),
+                "reviewed_at": (b.get("admin_review") or {}).get("reviewed_at"),
+                "reviewed_by": (b.get("admin_review") or {}).get("reviewed_by_name", ""),
+                "status": b.get("status", "published"),
+            }
+        )
+
+    return {"items": items, "page": page, "limit": limit, "total": total}
+
+
 # ---------------- ADMIN: APPROVE BLOG ---------------- 
 @router.post("/admin/blogs/{blog_id}/approve", response_model=dict)  # POST /admin/blogs/{blog_id}/approve
 async def approve_blog(blog_id: str, admin=Depends(require_admin)):
