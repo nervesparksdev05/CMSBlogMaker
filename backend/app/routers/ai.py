@@ -58,7 +58,12 @@ async def image_generate(payload: ImageGenerateIn):
     try:
         return await generate_cover_image(payload.model_dump())
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_detail = str(e)
+        # Log the full error for debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Image generation failed: {error_detail}", exc_info=True)
+        raise HTTPException(status_code=400, detail=error_detail)
 
 @router.post("/blog-generate", response_model=FinalBlog)
 async def blog_generate(payload: GenerateBlogIn):

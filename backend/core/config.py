@@ -22,4 +22,9 @@ class Settings:
     GEMINI_TEXT_MODEL: str = os.getenv("GEMINI_TEXT_MODEL", "")
     GEMINI_IMAGE_MODEL: str = os.getenv("GEMINI_IMAGE_MODEL", "")
 
+    # OpenAI fallback configuration
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    OPENAI_TEXT_MODEL: str = os.getenv("OPENAI_TEXT_MODEL", "gpt-4o")
+    OPENAI_IMAGE_MODEL: str = os.getenv("OPENAI_IMAGE_MODEL", "dall-e-3")
+
 settings = Settings()

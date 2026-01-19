@@ -89,10 +89,14 @@ async def blog_stats(user=Depends(get_current_user)):
 # ---------------- UPLOADS ----------------
 @router.post("/blogs/uploads/images", response_model=dict)  # POST /blogs/uploads/images
 async def upload_image(file: UploadFile = File(...), user=Depends(get_current_user)):
-    os.makedirs("uploads", exist_ok=True)
+    from pathlib import Path
+    BASE_DIR = Path(__file__).parent.parent.parent
+    UPLOADS_DIR = BASE_DIR / "uploads"
+    UPLOADS_DIR.mkdir(exist_ok=True)
+    
     ext = os.path.splitext(file.filename or "")[-1].lower() or ".png"
     filename = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join("uploads", filename)
+    path = UPLOADS_DIR / filename
 
     data = await file.read()
     with open(path, "wb") as f:
