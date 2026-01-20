@@ -1,11 +1,25 @@
 import base64
+import logging
+import os
 import uuid
+from io import BytesIO
 from textwrap import dedent
+
+import requests
+from PIL import Image
 from google import genai
 from google.genai import types
+from openai import OpenAI
 from google.cloud import storage
 
 from core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Get absolute path to uploads directory
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
+os.makedirs(UPLOADS_DIR, exist_ok=True)
 
 _client = None
 _storage_client = None
@@ -16,12 +30,18 @@ def _normalize_model(name: str) -> str:
     return name if name.startswith("models/") else f"models/{name}"
 
 def _get_client() -> genai.Client:
+    global _client
     if not settings.GEMINI_API_KEY:
         raise RuntimeError("GEMINI_API_KEY is not set.")
-    global _client
     if _client is None:
-        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        try:
+            _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        except Exception as e:
+            logger.warning(f"Failed to initialize Gemini client: {e}")
+            raise
     return _client
+
+openai_client = OpenAI(api_key=settings.OPENAI_API_KEY) if settings.OPENAI_API_KEY else None
 
 def _get_storage_client() -> storage.Client:
     """
@@ -31,11 +51,7 @@ def _get_storage_client() -> storage.Client:
     """
     global _storage_client
     if _storage_client is None:
-        import os
-        import logging
         from google.oauth2 import service_account
-        
-        logger = logging.getLogger(__name__)
         
         # Use GOOGLE_APPLICATION_CREDENTIALS for GCS bucket (separate from Firestore credentials)
         creds_path = None
@@ -164,6 +180,8 @@ def _prepare_image(data: bytes, mime_type: str | None) -> tuple[bytes, str]:
     return normalized, ext
 
 async def generate_cover_image(payload: dict) -> dict:
+    os.makedirs("uploads", exist_ok=True)
+
     final_prompt = dedent(f"""
     Create a high-quality blog cover image.
     Language context: English blog.
@@ -180,75 +198,118 @@ async def generate_cover_image(payload: dict) -> dict:
     No watermark, no logos, no text.
     """).lstrip("\n")
 
-    client = _get_client()
-    model_name = _normalize_model(settings.GEMINI_IMAGE_MODEL)
-
-    if "imagen" in model_name:
-        resp = client.models.generate_images(
-            model=model_name,
-            prompt=final_prompt,
-            config=types.GenerateImagesConfig(
-                number_of_images=1,
-                aspect_ratio=payload["aspect_ratio"],
-            ),
+    try:
+        client = _get_client()
+        cfg = types.GenerateContentConfig(
+            response_modalities=["Image"],
+            image_config=types.ImageConfig(aspect_ratio=payload["aspect_ratio"]),
         )
 
-        if not resp.generated_images:
-            raise RuntimeError("Image model did not return an image.")
+        resp = client.models.generate_content(
+            model=settings.GEMINI_IMAGE_MODEL,
+            contents=[final_prompt],
+            config=cfg,
+        )
 
-        img_obj = resp.generated_images[0].image
-        if not img_obj or not img_obj.image_bytes:
-            raise RuntimeError("Image model returned no image bytes.")
+        for part in resp.parts:
+            if part.inline_data is not None:
+                img: Image.Image = part.as_image()
+                filename = f"{uuid.uuid4().hex}.png"
+                path = os.path.join(UPLOADS_DIR, filename)
+                img.save(path)
 
-        img_bytes, ext = _prepare_image(img_obj.image_bytes, img_obj.mime_type)
-        filename = f"{uuid.uuid4().hex}.{ext}"
-        content_type = img_obj.mime_type or _content_type_from_ext(ext)
-        image_url = upload_bytes_to_gcs(img_bytes, filename, content_type)
+                return {
+                    "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
+                    "meta": {
+                        "aspect_ratio": payload["aspect_ratio"],
+                        "quality": payload["quality"],
+                        "primary_color": payload["primary_color"],
+                        "model": settings.GEMINI_IMAGE_MODEL,
+                        "prompt": payload["prompt"],
+                    },
+                }
 
-        return {
-            "image_url": image_url,
-            "meta": {
-                "aspect_ratio": payload["aspect_ratio"],
-                "quality": payload["quality"],
-                "primary_color": payload["primary_color"],
-                "model": model_name,
-                "prompt": payload["prompt"],
-            },
+        raise RuntimeError("Image model did not return an image in the response parts.")
+    
+    except Exception as e:
+        logger.warning(f"Gemini image generation failed: {e}. Falling back to OpenAI DALL-E.")
+        
+        # Fallback to OpenAI DALL-E
+        if openai_client is None:
+            raise RuntimeError(
+                f"Both Gemini and OpenAI clients are unavailable. "
+                f"Gemini error: {e}. "
+                f"OpenAI API key not configured."
+            )
+        
+        if not settings.OPENAI_API_KEY:
+            raise RuntimeError(
+                f"Both Gemini and OpenAI image generation failed. "
+                f"Gemini error: {e}. "
+                f"OpenAI API key is missing in configuration."
+            )
+        
+        # Map aspect ratios to DALL-E format
+        aspect_ratio_map = {
+            "1:1": "1024x1024",
+            "4:3": "1024x768",
+            "3:4": "768x1024",
+            "16:9": "1792x1024",
+            "9:16": "1024x1792",
         }
-
-    cfg = types.GenerateContentConfig(
-        response_modalities=["Image"],
-        image_config=types.ImageConfig(aspect_ratio=payload["aspect_ratio"]),
-    )
-
-    resp = client.models.generate_content(
-        model=model_name,
-        contents=[final_prompt],
-        config=cfg,
-    )
-
-    parts = resp.parts or []
-    if not parts and resp.candidates:
-        for cand in resp.candidates:
-            if cand.content and cand.content.parts:
-                parts.extend(cand.content.parts)
-
-    for part in parts:
-        if part.inline_data is not None and part.inline_data.data:
-            img_bytes, ext = _prepare_image(part.inline_data.data, part.inline_data.mime_type)
-            filename = f"{uuid.uuid4().hex}.{ext}"
-            content_type = part.inline_data.mime_type or _content_type_from_ext(ext)
-            image_url = upload_bytes_to_gcs(img_bytes, filename, content_type)
-
+        size = aspect_ratio_map.get(payload["aspect_ratio"], "1024x1024")
+        
+        # Map quality to DALL-E quality
+        quality_map = {
+            "low": "standard",
+            "medium": "standard",
+            "high": "hd",
+        }
+        dall_e_quality = quality_map.get(payload["quality"], "hd")
+        
+        try:
+            logger.info(f"Attempting OpenAI DALL-E image generation with size: {size}, quality: {dall_e_quality}")
+            response = openai_client.images.generate(
+                model=settings.OPENAI_IMAGE_MODEL,
+                prompt=final_prompt,
+                size=size,
+                quality=dall_e_quality,
+                n=1,
+            )
+            
+            if not response or not response.data or len(response.data) == 0:
+                raise RuntimeError("OpenAI API returned empty response")
+            
+            # Download the image
+            image_url = response.data[0].url
+            if not image_url:
+                raise RuntimeError("OpenAI API returned image without URL")
+            
+            logger.info(f"Downloading image from OpenAI URL: {image_url}")
+            img_response = requests.get(image_url, stream=True, timeout=30)
+            img_response.raise_for_status()
+            
+            img = Image.open(BytesIO(img_response.content))
+            filename = f"{uuid.uuid4().hex}.png"
+            path = os.path.join(UPLOADS_DIR, filename)
+            img.save(path)
+            
+            logger.info(f"Successfully generated image using OpenAI DALL-E: {filename}")
             return {
-                "image_url": image_url,
+                "image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}",
                 "meta": {
                     "aspect_ratio": payload["aspect_ratio"],
                     "quality": payload["quality"],
                     "primary_color": payload["primary_color"],
-                    "model": model_name,
+                    "model": settings.OPENAI_IMAGE_MODEL,
                     "prompt": payload["prompt"],
                 },
             }
-
-    raise RuntimeError("Image model did not return an image.")
+        except Exception as openai_error:
+            error_msg = (
+                f"Both Gemini and OpenAI image generation failed. "
+                f"Gemini error: {e}. "
+                f"OpenAI error: {str(openai_error)}"
+            )
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)

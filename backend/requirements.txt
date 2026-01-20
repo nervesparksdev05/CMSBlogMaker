@@ -10,8 +10,8 @@ passlib[bcrypt]==1.7.4
 
 python-multipart==0.0.9
 markdown==3.7
-
 google-genai==1.*
+openai>=1.54.0
 google-cloud-storage==2.*
 pillow==10.*
 argon2-cffi==23.1.0

@@ -1,5 +1,6 @@
 from typing import List
 from textwrap import dedent
+import logging
 
 from google import genai
 from google.genai import types
@@ -8,20 +9,18 @@ from pydantic import BaseModel, Field, create_model
 from core.config import settings
 from app.models.schemas import AI_OPTIONS_COUNT
 
+# Initialize client lazily to avoid import errors if API key is missing
 _client = None
 
-def _normalize_model(name: str) -> str:
-    if not name:
-        return name
-    return name if name.startswith("models/") else f"models/{name}"
-
-def _get_client() -> genai.Client:
-    if not settings.GEMINI_API_KEY:
-        raise RuntimeError("GEMINI_API_KEY is not set.")
+def _get_client():
     global _client
     if _client is None:
+        if not settings.GEMINI_API_KEY:
+            raise RuntimeError("GEMINI_API_KEY is not set.")
         _client = genai.Client(api_key=settings.GEMINI_API_KEY)
     return _client
+
+client = None  # Will be initialized on first use via _get_client()
 
 # ---------- schemas for structured outputs ----------
 class _StringOptions(BaseModel):
@@ -43,12 +42,6 @@ def _sys(tone: str, creativity: str) -> str:
     )
 
 async def gen_topic_ideas(payload: dict) -> List[str]:
-    count = payload.get("count") or AI_OPTIONS_COUNT
-    try:
-        count = int(count)
-    except (TypeError, ValueError):
-        count = AI_OPTIONS_COUNT
-
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -56,58 +49,68 @@ async def gen_topic_ideas(payload: dict) -> List[str]:
     Targeted audience: {payload.get('targeted_audience','')}
     Reference links: {payload.get('reference_links','')}
 
-    Generate exactly {count} blog topic ideas.
+    Generate exactly {AI_OPTIONS_COUNT} blog topic ideas.
     Each idea must be a single sentence, clear and specific.
     """).lstrip("\n")
 
     client = _get_client()
     resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
+        model=settings.GEMINI_TEXT_MODEL,
         contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _string_options_schema(count)},
+        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
     )
     return resp.parsed.options
 
 async def gen_titles(payload: dict) -> List[str]:
-    prompt = dedent(f"""
-    {_sys(payload['tone'], payload['creativity'])}
-    Focus/Niche: {payload['focus_or_niche']}
-    Keyword: {payload.get('targeted_keyword','')}
-    Audience: {payload.get('targeted_audience','')}
-    Selected idea: {payload['selected_idea']}
+    try:
+        client = _get_client()
+        
+        prompt = dedent(f"""
+        {_sys(payload['tone'], payload['creativity'])}
+        Focus/Niche: {payload['focus_or_niche']}
+        Keyword: {payload.get('targeted_keyword','')}
+        Audience: {payload.get('targeted_audience','')}
+        Selected idea: {payload['selected_idea']}
 
-    Generate exactly {AI_OPTIONS_COUNT} SEO-friendly blog titles.
-    No quotes, no emojis.
-    """).lstrip("\n")
+        Generate exactly {AI_OPTIONS_COUNT} SEO-friendly blog titles.
+        No quotes, no emojis.
+        """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
-        contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-    )
-    return resp.parsed.options
+        resp = client.models.generate_content(
+            model=settings.GEMINI_TEXT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
+        )
+        return resp.parsed.options
+    except Exception as e:
+        logging.error(f"Error generating titles: {e}")
+        raise
 
 async def gen_intros(payload: dict) -> List[str]:
-    prompt = dedent(f"""
-    {_sys(payload['tone'], payload['creativity'])}
-    Focus/Niche: {payload['focus_or_niche']}
-    Keyword: {payload.get('targeted_keyword','')}
-    Audience: {payload.get('targeted_audience','')}
-    Selected idea: {payload['selected_idea']}
-    Title: {payload['title']}
+    try:
+        client = _get_client()
+        
+        prompt = dedent(f"""
+        {_sys(payload['tone'], payload['creativity'])}
+        Focus/Niche: {payload['focus_or_niche']}
+        Keyword: {payload.get('targeted_keyword','')}
+        Audience: {payload.get('targeted_audience','')}
+        Selected idea: {payload['selected_idea']}
+        Title: {payload['title']}
 
-    Generate exactly {AI_OPTIONS_COUNT} intro paragraphs in Markdown.
-    Each intro: 80-140 words.
-    """).lstrip("\n")
+        Generate exactly {AI_OPTIONS_COUNT} intro paragraphs in Markdown.
+        Each intro: 80-140 words.
+        """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
-        contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-    )
-    return resp.parsed.options
+        resp = client.models.generate_content(
+            model=settings.GEMINI_TEXT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
+        )
+        return resp.parsed.options
+    except Exception as e:
+        logging.error(f"Error generating intros: {e}")
+        raise
 
 class _OutlineVariant(BaseModel):
     outline: List[str] = Field(min_length=6, max_length=12)
@@ -116,59 +119,61 @@ class _OutlineOptions(BaseModel):
     options: List[_OutlineVariant] = Field(min_length=AI_OPTIONS_COUNT, max_length=AI_OPTIONS_COUNT)
 
 async def gen_outlines(payload: dict):
-    prompt = dedent(f"""
-    {_sys(payload['tone'], payload['creativity'])}
-    Focus/Niche: {payload['focus_or_niche']}
-    Keyword: {payload.get('targeted_keyword','')}
-    Audience: {payload.get('targeted_audience','')}
-    Selected idea: {payload['selected_idea']}
-    Title: {payload['title']}
-    Intro: {payload['intro_md']}
+    try:
+        client = _get_client()
+        
+        prompt = dedent(f"""
+        {_sys(payload['tone'], payload['creativity'])}
+        Focus/Niche: {payload['focus_or_niche']}
+        Keyword: {payload.get('targeted_keyword','')}
+        Audience: {payload.get('targeted_audience','')}
+        Selected idea: {payload['selected_idea']}
+        Title: {payload['title']}
+        Intro: {payload['intro_md']}
 
-    Generate exactly {AI_OPTIONS_COUNT} outline variants.
-    Each outline should be 6-10 headings.
-    Headings must be short and not numbered.
-    """).lstrip("\n")
+        Generate exactly {AI_OPTIONS_COUNT} outline variants.
+        Each outline should be 6-10 headings.
+        Headings must be short and not numbered.
+        """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
-        contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _OutlineOptions},
-    )
-    return [o.model_dump() for o in resp.parsed.options]
+        resp = client.models.generate_content(
+            model=settings.GEMINI_TEXT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json", "response_schema": _OutlineOptions},
+        )
+        return [o.model_dump() for o in resp.parsed.options]
+    except Exception as e:
+        logging.error(f"Error generating outlines: {e}")
+        raise
 
 async def gen_image_prompts(payload: dict) -> List[str]:
-    prompt = dedent(f"""
-    {_sys(payload['tone'], payload['creativity'])}
-    Focus/Niche: {payload['focus_or_niche']}
-    Keyword: {payload.get('targeted_keyword','')}
-    Selected idea: {payload['selected_idea']}
-    Title: {payload['title']}
+    try:
+        client = _get_client()
+        
+        prompt = dedent(f"""
+        {_sys(payload['tone'], payload['creativity'])}
+        Focus/Niche: {payload['focus_or_niche']}
+        Keyword: {payload.get('targeted_keyword','')}
+        Selected idea: {payload['selected_idea']}
+        Title: {payload['title']}
 
-    Generate exactly {AI_OPTIONS_COUNT} blog cover image prompts.
-    Avoid text/logos/watermarks.
-    """).lstrip("\n")
+        Generate exactly {AI_OPTIONS_COUNT} blog cover image prompts.
+        Avoid text/logos/watermarks.
+        """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
-        contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-    )
-    return resp.parsed.options
+        resp = client.models.generate_content(
+            model=settings.GEMINI_TEXT_MODEL,
+            contents=[prompt],
+            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
+        )
+        return resp.parsed.options
+    except Exception as e:
+        logging.error(f"Error generating image prompts: {e}")
+        raise
 
 # Final blog generation returns ONE markdown (not 5)
 async def gen_final_blog_markdown(payload: dict) -> str:
     refs = payload.get("reference_links", "")
-    primary_color = payload.get("primary_color", "#4443E4")
-    creativity = payload.get("creativity", "")
-    
-    # Include color theme in prompt when creativity is high quality
-    color_instruction = ""
-    if creativity and "high" in creativity.lower():
-        color_instruction = f"\nColor theme: Use the primary color {primary_color} as a design theme throughout the content. Incorporate this color scheme in descriptions, visual elements, and overall aesthetic when relevant."
-    
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
     Focus/Niche: {payload['focus_or_niche']}
@@ -181,21 +186,20 @@ async def gen_final_blog_markdown(payload: dict) -> str:
     Intro (markdown): {payload['intro_md']}
     Outline headings: {payload['outline']}
     Cover image url: {payload.get('cover_image_url','')}
-    Primary color code: {primary_color}{color_instruction}
 
-    Write a complete blog post in Markdown.
-    Rules:
-    - Start with '# {{Title}}'
-    - If cover_image_url is not empty, include: ![Cover](cover_image_url)
-    - Use '##' headings based on the outline
-    - Include a '## Conclusion' section
-    - If reference links exist, include '## References' with bullet links.
-    Return ONLY the Markdown text.
-    """).lstrip("\n")
+        Write a complete blog post in Markdown.
+        Rules:
+        - Start with '# {{Title}}'
+        - If cover_image_url is not empty, include: ![Cover](cover_image_url)
+        - Use '##' headings based on the outline
+        - Include a '## Conclusion' section
+        - If reference links exist, include '## References' with bullet links.
+        Return ONLY the Markdown text.
+        """).lstrip("\n")
 
     client = _get_client()
     resp = client.models.generate_content(
-        model=_normalize_model(settings.GEMINI_TEXT_MODEL),
+        model=settings.GEMINI_TEXT_MODEL,
         contents=[prompt],
         config=types.GenerateContentConfig(temperature=0.7),
     )
