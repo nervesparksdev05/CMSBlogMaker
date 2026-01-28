@@ -31,7 +31,7 @@ jobs:
                     cd $APP_DIR
                     git pull origin main
 
-                    echo "=== Updating dependencies === "
+                    echo "=== Updating dependencies ==="
                     cd $BACKEND_DIR
                     if [ ! -d "venv" ] || [ ! -f "venv/bin/pip" ]; then
                         echo "=== Creating virtual environment ==="
