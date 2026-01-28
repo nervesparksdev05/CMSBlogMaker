@@ -41,11 +41,11 @@ jobs:
                             python3 -m venv venv
                         fi
                     fi
+                    venv/bin/pip install --upgrade pip
                     venv/bin/pip install -r requirements.txt --upgrade
                     
                     echo "=== Restarting cms-blog-maker-backend ==="
                     # Stop and delete existing process to ensure it uses the venv Python
-                    pm2 delete cms-blog-maker-backend 2>/dev/null || true
                     pm2 delete cms-backend 2>/dev/null || true
                     # Start with explicit venv Python interpreter
                     cd $BACKEND_DIR
