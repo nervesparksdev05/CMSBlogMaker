@@ -41,7 +41,7 @@ api_app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @api_app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "cms-backend"}
+    return {"status": "healthy, CI/CD running", "service": "cms-backend"}
 
 
 api_app.include_router(auth.router, prefix="/auth", tags=["auth"])
