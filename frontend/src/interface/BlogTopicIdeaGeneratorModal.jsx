@@ -15,6 +15,7 @@ export default function BlogTopicIdeaGeneratorModal({
   const [ideas, setIdeas] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const hasIdeas = ideas.length > 0;
 
@@ -34,6 +35,7 @@ export default function BlogTopicIdeaGeneratorModal({
     setIdeas([]);
     setSelectedIdx(0);
     setLoading(false);
+    setError("");
   }, [open]);
 
   const canGenerate = useMemo(() => {
@@ -42,39 +44,28 @@ export default function BlogTopicIdeaGeneratorModal({
 
   if (!open) return null;
 
-  const mockIdeas = (n = 5) => {
-    const base = focus.trim() || "Technology";
-    return Array.from({ length: n }).map(
-      (_, i) =>
-        `${base}: ${[
-          "beginner roadmap",
-          "common mistakes",
-          "best tools in 2025",
-          "case study",
-          "step-by-step guide",
-          "future trends",
-          "productivity tips",
-        ][i % 7]}`
-    );
-  };
-
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
     try {
       setLoading(true);
+      setError("");
       const n = Number(count) || 5;
 
-      let generated = null;
-      if (typeof onGenerateIdeas === "function") {
-        generated = await onGenerateIdeas({ focus: focus.trim(), count: n });
+      if (typeof onGenerateIdeas !== "function") {
+        throw new Error("Idea generator is not available.");
       }
 
-      const nextIdeas =
-        Array.isArray(generated) && generated.length ? generated : mockIdeas(n);
+      const generated = await onGenerateIdeas({ focus: focus.trim(), count: n });
 
-      setIdeas(nextIdeas);
+      if (!Array.isArray(generated) || generated.length === 0) {
+        throw new Error("No ideas returned from AI.");
+      }
+
+      setIdeas(generated);
       setSelectedIdx(0);
+    } catch (err) {
+      setError(err?.message || "Failed to generate ideas.");
     } finally {
       setLoading(false);
     }
@@ -328,6 +319,12 @@ export default function BlogTopicIdeaGeneratorModal({
               </button>
             </div>
           )}
+
+          {error ? (
+            <div className="mt-2 text-center text-[12px] text-[#DC2626]">
+              {error}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

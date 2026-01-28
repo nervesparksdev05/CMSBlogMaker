@@ -1,5 +1,7 @@
 // src/interface/HeaderBottomBar.jsx
+import { useNavigate } from "react-router-dom";
 import CmsIcon from "../assets/cms-icon.svg";
+import { clearDraft } from "../lib/storage.js";
 
 export default function HeaderBottomBar({
   iconSrc = CmsIcon,
@@ -13,8 +15,21 @@ export default function HeaderBottomBar({
 
   // optional default button controls
   showNewBlogButton = true,
+
+  // ✅ route to Create Blog page
+  newBlogTo = "/create-blog",
+
+  // optional callback (still supported)
   onNewBlog,
 }) {
+  const navigate = useNavigate();
+
+  const handleNewBlog = () => {
+    onNewBlog?.();
+    clearDraft();
+    navigate(newBlogTo);
+  };
+
   return (
     <div
       className={[
@@ -30,9 +45,7 @@ export default function HeaderBottomBar({
             {iconSrc ? <img src={iconSrc} alt="" className="w-[34px] h-[34px]" /> : null}
           </div>
 
-          <span className="text-[18px] font-semibold text-[#111827]">
-            {title}
-          </span>
+          <span className="text-[18px] font-semibold text-[#111827]">{title}</span>
         </div>
 
         {/* Right */}
@@ -42,7 +55,7 @@ export default function HeaderBottomBar({
           ) : showNewBlogButton ? (
             <button
               type="button"
-              onClick={() => onNewBlog?.()}
+              onClick={handleNewBlog}
               className="
                 h-[38px]
                 px-[22px]

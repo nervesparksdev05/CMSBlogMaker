@@ -1,22 +1,51 @@
 // src/pages/BlogDetails.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BlogTopicIdeaGeneratorModal from "../interface/BlogTopicIdeaGeneratorModal";
-
-// ✅ SVGs imported as URLs (safe in Vite without SVGR)
 import AiIcon from "../assets/bot-icon.svg";
 import DetailIcon from "../assets/detail-icon.svg";
+import { apiPost } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
 
 export default function BlogDetails() {
+  const draft = loadDraft();
   const [openIdeas, setOpenIdeas] = useState(false);
 
-  const [language, setLanguage] = useState("English");
-  const [tone, setTone] = useState("Formal");
-  const [creativity, setCreativity] = useState("Regular");
+  const [language, setLanguage] = useState(draft.language || "English");
+  const [tone, setTone] = useState(draft.tone || "Formal");
+  const [creativity, setCreativity] = useState(draft.creativity || "Regular");
 
-  const [about, setAbout] = useState("");
-  const [keyword, setKeyword] = useState("");
-  const [audience, setAudience] = useState("");
-  const [reference, setReference] = useState("");
+  const [about, setAbout] = useState(draft.selected_idea || draft.focus_or_niche || "");
+  const [keyword, setKeyword] = useState(draft.targeted_keyword || "");
+  const [audience, setAudience] = useState(draft.targeted_audience || "");
+  const [reference, setReference] = useState(draft.reference_links || "");
+
+  useEffect(() => {
+    saveDraft({
+      language,
+      tone,
+      creativity,
+      focus_or_niche: about,
+      selected_idea: about,
+      targeted_keyword: keyword,
+      targeted_audience: audience,
+      reference_links: reference,
+    });
+  }, [language, tone, creativity, about, keyword, audience, reference]);
+
+  const handleGenerateIdeas = async ({ focus, count }) => {
+    const payload = {
+      focus_or_niche: focus,
+      targeted_keyword: keyword,
+      targeted_audience: audience,
+      reference_links: reference,
+      tone,
+      creativity,
+      count,
+    };
+    const data = await apiPost("/ai/ideas", payload);
+    const options = data?.options || [];
+    return count ? options.slice(0, count) : options;
+  };
 
   return (
     <div className="p-[18px]">
@@ -47,7 +76,7 @@ export default function BlogDetails() {
               required
               value={language}
               onChange={setLanguage}
-              options={["English", "Hindi", "Spanish"]}
+              options={["English"]}
             />
             <FieldSelect
               label="Tone of Blog"
@@ -142,6 +171,7 @@ export default function BlogDetails() {
       <BlogTopicIdeaGeneratorModal
         open={openIdeas}
         onClose={() => setOpenIdeas(false)}
+        onGenerateIdeas={handleGenerateIdeas}
         onDone={(pickedIdea) => setAbout(pickedIdea)}
       />
     </div>

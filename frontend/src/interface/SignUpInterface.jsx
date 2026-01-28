@@ -1,4 +1,4 @@
-// src/interface/SignUpInterface.jsx
+import { useState } from "react";
 import ContinueButton from "../buttons/ContinueButton.jsx";
 import GoogleButton from "../buttons/GoogleButton.jsx";
 import AppleButton from "../buttons/AppleButton.jsx";
@@ -6,17 +6,38 @@ import FacebookButton from "../buttons/FacebookButton.jsx";
 import SimpleHeaderInterface from "./SimpleHeaderInterface.jsx";
 import SimpleFooterInterface from "./SimpleFooterInterface.jsx";
 
-const SignUpPage = ({ onNext }) => {
+const SignUpPage = ({ onSubmit, onToggleMode, loading = false, error = "" }) => {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  const canSubmit =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    password.trim().length > 0 &&
+    confirm.trim().length > 0 &&
+    !loading;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    if (password !== confirm) {
+      setLocalError("Passwords do not match.");
+      return;
+    }
+    setLocalError("");
+    onSubmit?.({ name: name.trim(), email: email.trim(), password });
+  };
+
+  const errorText = localError || error;
+
   return (
     <div className="w-full min-h-screen flex flex-col bg-white">
-      {/* Top logo bar */}
       <SimpleHeaderInterface />
 
-      {/* Center content (compact so header+form+footer fit on one screen) */}
       <main className="flex-1 flex items-center justify-center">
-        {/* Main card */}
         <section className="flex flex-col items-center">
-          {/* Title */}
           <h1 className="text-[30px] leading-[36px] font-bold text-[#323743] mb-1">
             Join us!!!
           </h1>
@@ -24,9 +45,7 @@ const SignUpPage = ({ onNext }) => {
             Enter your details to create new account
           </p>
 
-          {/* Form area */}
           <div className="w-[460px] flex flex-col gap-2.5">
-            {/* Full name */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[20px] text-[#424856]">
                 Full name
@@ -44,10 +63,11 @@ const SignUpPage = ({ onNext }) => {
                   outline-none
                 "
                 placeholder="Tester"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
               />
             </div>
 
-            {/* Email */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[20px] text-[#424856]">
                 Email
@@ -65,10 +85,11 @@ const SignUpPage = ({ onNext }) => {
                   outline-none
                 "
                 placeholder="test@gmail.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
 
-            {/* Password */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[20px] text-[#424856]">
                 Password
@@ -85,11 +106,12 @@ const SignUpPage = ({ onNext }) => {
                   placeholder:text-[#9CA3AF]
                   outline-none
                 "
-                placeholder="••••••••••••••••"
+                placeholder="********"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
-            {/* Confirm Password */}
             <div className="flex flex-col">
               <label className="mb-1 text-[13px] leading-[20px] text-[#424856]">
                 Confirm Password
@@ -106,16 +128,26 @@ const SignUpPage = ({ onNext }) => {
                   placeholder:text-[#9CA3AF]
                   outline-none
                 "
-                placeholder="••••••••••••••••"
+                placeholder="********"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
               />
             </div>
 
-            {/* Continue button */}
-            <div className="mt-2 w-[">
-              <ContinueButton onClick={onNext} />
+            <div className="mt-2">
+              <ContinueButton
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                label={loading ? "Creating account..." : "Create account"}
+              />
             </div>
 
-            {/* Divider: Or sign in with */}
+            {errorText ? (
+              <div className="mt-1 text-[12px] text-[#DC2626] text-center">
+                {errorText}
+              </div>
+            ) : null}
+
             <div className="flex items-center gap-3 mt-2 mb-1">
               <span className="flex-1 h-px bg-[#E5E7EB]" />
               <span className="text-[12px] text-[#6B7280]">
@@ -124,19 +156,17 @@ const SignUpPage = ({ onNext }) => {
               <span className="flex-1 h-px bg-[#E5E7EB]" />
             </div>
 
-            {/* Social buttons row */}
             <div className="flex items-center justify-between gap-3 mt-1">
               <GoogleButton />
               <AppleButton />
               <FacebookButton />
             </div>
 
-            {/* Already have account */}
             <p className="mt-2 text-center text-[12px] text-[#6B7280]">
               Already have an account?{" "}
               <button
                 type="button"
-                onClick={onNext} // signup -> login (next step)
+                onClick={onToggleMode}
                 className="text-[#4443E4] font-medium hover:underline"
               >
                 Sign in
@@ -146,7 +176,6 @@ const SignUpPage = ({ onNext }) => {
         </section>
       </main>
 
-      {/* Bottom footer (same height & left padding as header) */}
       <SimpleFooterInterface />
     </div>
   );

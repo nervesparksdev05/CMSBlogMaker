@@ -38,6 +38,23 @@ function ProgressRing({ value = 0 }) {
   );
 }
 
+/** ✅ smaller + fully rounded */
+function ThumbDelete({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Remove reference image"
+      className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-white shadow-md border border-[#E5E7EB] flex items-center justify-center hover:bg-[#F3F4F6]"
+    >
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+        <path d="M6 6l12 12" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+        <path d="M18 6L6 18" stroke="#111827" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    </button>
+  );
+}
+
 export default function NanoBananaImageCard({
   open = false,
   onClose,
@@ -62,13 +79,13 @@ export default function NanoBananaImageCard({
   onUploadReference,
   onRemoveReference,
   onGenerate,
+  error = "",
 }) {
   const fileRef = useRef(null);
 
-  // ✅ color picker state + positioning
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerPos, setPickerPos] = useState({ left: 0, top: 0 });
-  const pickerBtnRef = useRef(null); // anchor wrapper around Customize button
+  const pickerBtnRef = useRef(null);
   const paletteRef = useRef(null);
 
   const aspects = useMemo(
@@ -85,20 +102,15 @@ export default function NanoBananaImageCard({
     if (!btnEl) return;
 
     const btn = btnEl.getBoundingClientRect();
-
-    // NOTE: keep these roughly aligned with your WidgetColorInterface size
     const paletteW = 320;
     const paletteH = 260;
     const gap = 12;
 
-    // prefer LEFT of customize button
     let left = btn.left - paletteW - gap;
     let top = btn.top + btn.height / 2 - paletteH / 2;
 
-    // if not enough space on left, open right
     if (left < 12) left = btn.right + gap;
 
-    // clamp to viewport
     left = Math.max(12, Math.min(window.innerWidth - paletteW - 12, left));
     top = Math.max(12, Math.min(window.innerHeight - paletteH - 12, top));
 
@@ -117,7 +129,6 @@ export default function NanoBananaImageCard({
     if (!pickerOpen) return;
 
     computePickerPos();
-
     const onResize = () => computePickerPos();
     const onScroll = () => computePickerPos();
 
@@ -131,7 +142,6 @@ export default function NanoBananaImageCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pickerOpen]);
 
-  // close on outside click / esc
   useLayoutEffect(() => {
     if (!pickerOpen) return;
 
@@ -163,9 +173,22 @@ export default function NanoBananaImageCard({
   const showGenerating = stage === "generating";
   const showDone = stage === "done";
 
+  const hasRefs = (referenceImages || []).length > 0;
+  const handlePickRefs = () => fileRef.current?.click();
+
+  const removeRefAt = (idx) => {
+    if (typeof onRemoveReference !== "function") return;
+    try {
+      onRemoveReference(idx);
+    } catch {
+      onRemoveReference();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/30 px-6">
-      <div className="w-full max-w-[1180px] rounded-[14px] bg-white shadow-xl overflow-hidden">
+    <div className="fixed inset-0 z-[800] flex items-center justify-center bg-black/30 px-6">
+      {/* ✅ more rounded modal */}
+      <div className="w-[1180px] h-[700px] rounded-[22px] bg-white shadow-xl ">
         {/* Top */}
         <div className="px-10 pt-8 pb-6 flex items-start justify-between">
           <div className="flex items-start gap-4">
@@ -177,9 +200,7 @@ export default function NanoBananaImageCard({
               <div className="text-[28px] leading-[34px] font-semibold text-[#111827]">
                 Generate Image with Nano Banana
               </div>
-              <div className="mt-1 text-[14px] text-[#6B7280]">
-                Generate images based on keywords
-              </div>
+              <div className="mt-1 text-[14px] text-[#6B7280]">Generate images based on keywords</div>
             </div>
           </div>
 
@@ -202,8 +223,8 @@ export default function NanoBananaImageCard({
             <div className="min-h-[520px] flex flex-col items-center justify-center">
               <ProgressRing value={progress} />
               <p className="mt-10 max-w-[860px] text-center text-[18px] leading-[30px] text-[#111827]">
-                Your high-fidelity image is currently being rendered by the Nano Banana model;
-                please remain on standby while we transform your vision into a visual reality.
+                Your high-fidelity image is currently being rendered by the Nano Banana model; please remain on standby
+                while we transform your vision into a visual reality.
               </p>
             </div>
           ) : null}
@@ -222,19 +243,13 @@ export default function NanoBananaImageCard({
                 </svg>
               </div>
 
-              <div className="mt-5 text-[20px] font-semibold text-[#111827]">
-                Image Generation is Completed
-              </div>
+              <div className="mt-5 text-[20px] font-semibold text-[#111827]">Image Generation is Completed</div>
 
               <div className="mt-8 flex items-center justify-center gap-18">
                 <div className="flex gap-10">
                   {(generatedImages || []).slice(0, 2).map((src, idx) => (
                     <div key={src + idx} className="w-[210px]">
-                      <img
-                        src={src}
-                        alt=""
-                        className="w-full h-[320px] object-cover rounded-[6px]"
-                      />
+                      <img src={src} alt="" className="w-full h-[320px] object-cover rounded-[10px]" />
                     </div>
                   ))}
                 </div>
@@ -270,7 +285,7 @@ export default function NanoBananaImageCard({
                 value={prompt}
                 onChange={(e) => onPromptChange?.(e.target.value)}
                 placeholder="Describe your image..."
-                className="w-full h-[110px] rounded-[10px] border border-[#D1D5DB] px-5 py-4 text-[14px] text-[#111827] placeholder:text-[#9CA3AF] outline-none resize-none"
+                className="w-full h-[110px] rounded-[12px] border border-[#D1D5DB] px-5 py-4 text-[14px] text-[#111827] placeholder:text-[#9CA3AF] outline-none resize-none"
               />
 
               <div className="mt-8 text-[14px] font-semibold text-[#111827]">
@@ -281,17 +296,8 @@ export default function NanoBananaImageCard({
                 {aspects.map((a) => {
                   const active = a.key === aspect;
                   return (
-                    <button
-                      key={a.key}
-                      type="button"
-                      onClick={() => onAspectChange?.(a.key)}
-                      className="flex items-center gap-3"
-                    >
-                      <img
-                        src={active ? RadioIcon : EmptyRadioIcon}
-                        alt=""
-                        className="w-[22px] h-[22px]"
-                      />
+                    <button key={a.key} type="button" onClick={() => onAspectChange?.(a.key)} className="flex items-center gap-3">
+                      <img src={active ? RadioIcon : EmptyRadioIcon} alt="" className="w-[22px] h-[22px]" />
                       <span className="text-[16px] text-[#111827]">{a.label}</span>
                     </button>
                   );
@@ -299,7 +305,6 @@ export default function NanoBananaImageCard({
               </div>
 
               <div className="mt-10 flex items-start justify-between gap-10">
-                {/* Quality */}
                 <div className="w-[520px]">
                   <div className="text-[14px] font-semibold text-[#111827] mb-3">Image Quantity</div>
 
@@ -307,7 +312,7 @@ export default function NanoBananaImageCard({
                     <select
                       value={quality}
                       onChange={(e) => onQualityChange?.(e.target.value)}
-                      className="w-full h-[46px] rounded-[10px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 text-[14px] text-[#111827] outline-none appearance-none"
+                      className="w-full h-[46px] rounded-[12px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 text-[14px] text-[#111827] outline-none appearance-none"
                     >
                       <option value="">-Select Image quality-</option>
                       <option value="standard">Standard</option>
@@ -316,24 +321,15 @@ export default function NanoBananaImageCard({
 
                     <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#6B7280]">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                        <path
-                          d="M6 9l6 6 6-6"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                        <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </span>
                   </div>
                 </div>
 
-                {/* Primary color */}
                 <div className="flex-1 flex items-start justify-end gap-8">
                   <div>
-                    <div className="text-[14px] font-semibold text-[#111827] mb-3 text-center">
-                      Primary color
-                    </div>
+                    <div className="text-[14px] font-semibold text-[#111827] mb-3 text-center">Primary color</div>
 
                     <div className="flex items-center gap-4">
                       <button
@@ -343,8 +339,6 @@ export default function NanoBananaImageCard({
                         style={{ background: primaryColor }}
                         aria-label="Toggle color palette"
                       />
-
-                      {/* ✅ Anchor wrapper with ref + button click */}
                       <span ref={pickerBtnRef} className="inline-flex">
                         <CustomizeColorButton onClick={togglePicker} />
                       </span>
@@ -353,13 +347,8 @@ export default function NanoBananaImageCard({
                 </div>
               </div>
 
-              {/* ✅ Palette popover (NOT a duplicate widget) */}
               {pickerOpen ? (
-                <div
-                  ref={paletteRef}
-                  className="fixed z-[99999]"
-                  style={{ left: pickerPos.left, top: pickerPos.top }}
-                >
+                <div ref={paletteRef} className="fixed z-[99999]" style={{ left: pickerPos.left, top: pickerPos.top }}>
                   <WidgetColorInterface
                     label="Primary color"
                     value={primaryColor}
@@ -369,11 +358,35 @@ export default function NanoBananaImageCard({
                 </div>
               ) : null}
 
-              <div className="mt-12 flex items-center justify-end gap-4">
+              {/* ✅ Reference Image section: smaller thumbs + fully rounded corners */}
+              <div className="mt-3">
+                <div className="text-[14px] font-semibold mb-3 text-[#111827] ">Reference Image</div>
+
+                <div className="w-full h-[92px] rounded-[14px] bg-[#F3F4F6] border border-[#E5E7EB] flex items-center px-4 overflow-hidden">
+                  {!hasRefs ? (
+                    <div className="text-[13px] text-[#6B7280]">Upload a reference image (optional)</div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      {(referenceImages || []).slice(0, 6).map((src, idx) => (
+                        <div
+                          key={`${src}-${idx}`}
+                          className="relative w-[44px] h-[44px] rounded-full bg-white border border-[#E5E7EB] overflow-hidden"
+                        >
+                          <img src={src} alt="" className="w-full h-full object-cover" draggable="false" />
+                          <ThumbDelete onClick={() => removeRefAt(idx)} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-end gap-4">
                 <input
                   ref={fileRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   className="hidden"
                   onChange={(e) => {
                     const files = e.target.files;
@@ -384,7 +397,7 @@ export default function NanoBananaImageCard({
 
                 <button
                   type="button"
-                  onClick={() => fileRef.current?.click()}
+                  onClick={handlePickRefs}
                   className="h-[44px] px-8 rounded-full bg-white border border-[#111827]/40 text-[14px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
                 >
                   Upload Reference Image
@@ -398,6 +411,12 @@ export default function NanoBananaImageCard({
                   Generate Image
                 </button>
               </div>
+
+              {error ? (
+                <div className="mt-3 text-[12px] text-[#DC2626] text-right">
+                  {error}
+                </div>
+              ) : null}
             </>
           ) : null}
         </div>

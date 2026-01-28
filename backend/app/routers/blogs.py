@@ -1,17 +1,25 @@
 import os
 import uuid
 from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
-from app.db import blogs_col
-from app.deps import get_current_user, oid
-from app.schemas import BlogCreateIn, BlogOut, BlogListItem
-from app.config import settings
+
+from app.models.firestore_db import (
+    create_blog, get_blog_by_id, update_blog, delete_blog,
+    query_blogs, count_blogs, create_image
+)
+from core.deps import get_current_user, require_admin
+from app.models.schemas import BlogCreateIn, BlogOut, BlogCommentIn
+from app.services.image_service import upload_bytes_to_gcs
 
 router = APIRouter()
 
-@router.post("", response_model=dict)
-async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
+
+# ---------------- save ----------------
+@router.post("/blog", response_model=dict)  # POST /blog
+async def save_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
     now = datetime.utcnow()
+
     doc = {
         "owner_id": user["id"],
         "owner_name": user["name"],
@@ -29,75 +37,91 @@ async def create_blog(payload: BlogCreateIn, user=Depends(get_current_user)):
         "updated_at": now,
         "published_at": None,
     }
-    res = await blogs_col.insert_one(doc)
-    return {"blog_id": str(res.inserted_id), "status": "saved"}
 
-@router.get("/mine", response_model=dict)
-async def my_blogs(
+    blog_id = create_blog(doc)
+    return {"blog_id": blog_id, "status": "saved"}
+
+# ---------------- LIST (MY BLOGS) ----------------
+@router.get("/blog", response_model=dict)  # GET /blog?page=1&limit=10&search=query
+async def list_my_blogs(
     user=Depends(get_current_user),
     page: int = Query(1, ge=1),
     limit: int = Query(10, ge=5, le=50),
+    search: str = Query("", description="Search query to filter blogs by title, language, tone, creativity, author, or status"),
 ):
     skip = (page - 1) * limit
     q = {"owner_id": user["id"]}
-    total = await blogs_col.count_documents(q)
-
-    cursor = blogs_col.find(q).sort("created_at", -1).skip(skip).limit(limit)
+    
+    # Fetch all blogs for the user (we'll filter by search in Python since Firestore doesn't support full-text search)
+    # For better performance with large datasets, consider using a search service like Algolia or Elasticsearch
+    all_blogs = query_blogs(q, order_by="created_at", order_direction="DESCENDING", skip=0, limit=1000)
+    
+    # Apply search filter if provided
+    search_lower = search.strip().lower()
+    if search_lower:
+        filtered_blogs = []
+        for b in all_blogs:
+            title = (b.get("meta") or {}).get("title", "") or (b.get("final_blog") or {}).get("render", {}).get("title", "")
+            language = (b.get("meta") or {}).get("language", "English")
+            tone = (b.get("meta") or {}).get("tone", "")
+            creativity = (b.get("meta") or {}).get("creativity", "")
+            created_by = b.get("owner_name", "")
+            status = b.get("status", "saved")
+            
+            # Search in multiple fields
+            searchable_text = f"{title} {language} {tone} {creativity} {created_by} {status}".lower()
+            if search_lower in searchable_text:
+                filtered_blogs.append(b)
+        all_blogs = filtered_blogs
+    
+    # Calculate total after filtering
+    total = len(all_blogs)
+    
+    # Apply pagination
+    paginated_blogs = all_blogs[skip:skip + limit]
+    
     items = []
-    async for b in cursor:
-        items.append({
-            "id": str(b["_id"]),
-            "title": (b.get("meta") or {}).get("title", "") or (b.get("final_blog") or {}).get("render", {}).get("title",""),
-            "created_by": b.get("owner_name", ""),
-            "created_at": b.get("created_at"),
-            "status": b.get("status", "saved"),
-        })
+    for b in paginated_blogs:
+        items.append(
+            {
+                "id": b.get("id", ""),
+                "title": (b.get("meta") or {}).get("title", "")
+                or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "language": (b.get("meta") or {}).get("language", "English"),
+                "tone": (b.get("meta") or {}).get("tone", ""),
+                "creativity": (b.get("meta") or {}).get("creativity", ""),
+                "created_by": b.get("owner_name", ""),
+                "created_at": b.get("created_at"),
+                "status": b.get("status", "saved"),
+            }
+        )
 
     return {"items": items, "page": page, "limit": limit, "total": total}
 
-@router.get("/{blog_id}", response_model=BlogOut)
-async def get_blog(blog_id: str, user=Depends(get_current_user)):
-    b = await blogs_col.find_one({"_id": oid(blog_id)})
-    if not b:
-        raise HTTPException(status_code=404, detail="Blog not found")
-    if b["owner_id"] != user["id"] and user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Not allowed")
 
-    b["id"] = str(b["_id"])
-    b.pop("_id", None)
-    return b
-
-@router.post("/{blog_id}/request-publish", response_model=dict)
-async def request_publish(blog_id: str, user=Depends(get_current_user)):
-    b = await blogs_col.find_one({"_id": oid(blog_id)})
-    if not b:
-        raise HTTPException(status_code=404, detail="Blog not found")
-    if b["owner_id"] != user["id"]:
-        raise HTTPException(status_code=403, detail="Not allowed")
-
-    if b.get("status") == "published":
-        raise HTTPException(status_code=400, detail="Already published")
-
-    await blogs_col.update_one(
-        {"_id": oid(blog_id)},
-        {"$set": {
-            "status": "pending",
-            "updated_at": datetime.utcnow(),
-            "admin_review.requested_at": datetime.utcnow(),
-            "admin_review.feedback": "",
-        }}
-    )
-    return {"ok": True, "status": "pending"}
-
-@router.get("/dashboard/stats", response_model=dict)
-async def dashboard_stats(user=Depends(get_current_user)):
+# ---------------- STATS ----------------
+@router.get("/blogs/stats", response_model=dict)  # GET /blogs/stats
+async def blog_stats(user=Depends(get_current_user)):
+    from app.models.firestore_db import count_images, query_images
+    
     q_owner = {"owner_id": user["id"]}
 
-    total = await blogs_col.count_documents(q_owner)
-    saved = await blogs_col.count_documents({**q_owner, "status": "saved"})
-    pending = await blogs_col.count_documents({**q_owner, "status": "pending"})
-    published = await blogs_col.count_documents({**q_owner, "status": "published"})
-    images = await blogs_col.count_documents({**q_owner, "meta.cover_image_url": {"$ne": ""}})
+    total = count_blogs(q_owner)
+    saved = count_blogs({**q_owner, "status": "saved"})
+    pending = count_blogs({**q_owner, "status": "pending"})
+    published = count_blogs({**q_owner, "status": "published"})
+    
+    # Count images with $or condition
+    images = count_images(
+        {
+            "owner_id": user["id"],
+            "$or": [
+                {"source": {"$in": ["nano", "blog"]}},
+                {"source": {"$exists": False}},
+                {"source": None},
+            ],
+        }
+    )
 
     return {
         "total_blogs": total,
@@ -107,13 +131,308 @@ async def dashboard_stats(user=Depends(get_current_user)):
         "generated_images": images,
     }
 
-@router.post("/upload/image", response_model=dict)
+
+# ---------------- UPLOADS ----------------
+@router.post("/blogs/uploads/images", response_model=dict)  # POST /blogs/uploads/images
 async def upload_image(file: UploadFile = File(...), user=Depends(get_current_user)):
-    os.makedirs("uploads", exist_ok=True)
-    ext = os.path.splitext(file.filename or "")[-1].lower() or ".png"
-    filename = f"{uuid.uuid4().hex}{ext}"
-    path = os.path.join("uploads", filename)
     data = await file.read()
-    with open(path, "wb") as f:
-        f.write(data)
-    return {"image_url": f"{settings.PUBLIC_BASE_URL}/uploads/{filename}"}
+    ext = os.path.splitext(file.filename or "")[-1].lower()
+    if not ext:
+        ct = (file.content_type or "").lower()
+        if "png" in ct:
+            ext = ".png"
+        elif "jpeg" in ct or "jpg" in ct:
+            ext = ".jpg"
+        elif "webp" in ct:
+            ext = ".webp"
+        elif "gif" in ct:
+            ext = ".gif"
+        elif "bmp" in ct:
+            ext = ".bmp"
+        else:
+            ext = ".png"
+
+    filename = f"{uuid.uuid4().hex}{ext}"
+    image_url = upload_bytes_to_gcs(data, filename, file.content_type or None)
+    create_image(
+        {
+            "owner_id": user["id"],
+            "owner_name": user.get("name", ""),
+            "image_url": image_url,
+            "meta": {
+                "filename": file.filename or filename,
+                "content_type": file.content_type or "",
+                "size": len(data),
+            },
+            "source": "upload",
+            "created_at": datetime.utcnow(),
+        }
+    )
+    return {"image_url": image_url}
+
+
+# ---------------- BLOG BY ID ---------------- 
+@router.get("/blogs/{blog_id}", response_model=BlogOut)  # GET /blogs/{blog_id}
+async def get_blog(blog_id: str, user=Depends(get_current_user)):
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b.get("owner_id") != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    # Ensure 'id' field is present (BlogOut schema requires it)
+    if "id" not in b:
+        b["id"] = blog_id
+    
+    return b
+
+
+# ---------------- DELETE BLOG ----------------
+@router.delete("/blogs/{blog_id}", response_model=dict)
+async def delete_blog_route(blog_id: str, user=Depends(get_current_user)):
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b.get("owner_id") != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    delete_blog(blog_id)
+    return {"ok": True}
+
+
+# ---------------- UPDATE BLOG ----------------
+@router.put("/blogs/{blog_id}", response_model=dict)
+async def update_blog_route(blog_id: str, payload: BlogCreateIn, user=Depends(get_current_user)):
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b.get("owner_id") != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    updates = {
+        "meta": payload.meta.model_dump(),
+        "final_blog": payload.final_blog.model_dump(),
+        "updated_at": datetime.utcnow(),
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "blog_id": blog_id}
+
+
+# ---------------- PUBLISH REQUEST ---------------- 
+@router.post("/blogs/{blog_id}/publish-request", response_model=dict)  # POST /blogs/{blog_id}/publish-request
+async def request_publish(
+    blog_id: str, 
+    payload: BlogCreateIn,  # Accept blog content to save when clicking publish
+    user=Depends(get_current_user)
+):
+    """
+    Save blog content and request publish approval.
+    This endpoint saves the blog content (if provided) and changes status to 'pending' for admin review.
+    The blog content is saved when user clicks publish to ensure latest content is submitted.
+    """
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    if b.get("owner_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    if b.get("status") == "published":
+        raise HTTPException(status_code=400, detail="Already published")
+
+    # Save/update the blog content and request publish
+    # This ensures the latest content is saved when user clicks publish
+    updates = {
+        "meta": payload.meta.model_dump(),
+        "final_blog": payload.final_blog.model_dump(),
+        "status": "pending",
+        "updated_at": datetime.utcnow(),
+        "admin_review.requested_at": datetime.utcnow(),
+        "admin_review.feedback": "",
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "status": "pending", "blog_id": blog_id}
+
+
+# ---------------- ADMIN: LIST PENDING BLOGS ---------------- 
+@router.get("/admin/blogs/pending", response_model=dict)  # GET /admin/blogs/pending?page=1&limit=10
+async def list_pending_blogs(
+    admin=Depends(require_admin),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=5, le=50),
+):
+    """List all blogs pending admin approval"""
+    skip = (page - 1) * limit
+    q = {"status": "pending"}
+    total = count_blogs(q)
+
+    blogs = query_blogs(q, order_by="admin_review.requested_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    items = []
+    for b in blogs:
+        items.append(
+            {
+                "id": b.get("id", ""),
+                "title": (b.get("meta") or {}).get("title", "")
+                or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "language": (b.get("meta") or {}).get("language", "English"),
+                "tone": (b.get("meta") or {}).get("tone", ""),
+                "creativity": (b.get("meta") or {}).get("creativity", ""),
+                "created_by": b.get("owner_name", ""),
+                "owner_id": b.get("owner_id", ""),
+                "created_at": b.get("created_at"),
+                "requested_at": (b.get("admin_review") or {}).get("requested_at"),
+                "status": b.get("status", "pending"),
+            }
+        )
+
+    return {"items": items, "page": page, "limit": limit, "total": total}
+
+
+# ---------------- ADMIN: LIST PUBLISHED BLOGS ---------------- 
+@router.get("/admin/blogs/published", response_model=dict)  # GET /admin/blogs/published?page=1&limit=10
+async def list_published_blogs(
+    admin=Depends(require_admin),
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=5, le=50),
+):
+    """List all published/approved blogs"""
+    skip = (page - 1) * limit
+    q = {"status": "published"}
+    total = count_blogs(q)
+
+    blogs = query_blogs(q, order_by="published_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    items = []
+    for b in blogs:
+        items.append(
+            {
+                "id": b.get("id", ""),
+                "title": (b.get("meta") or {}).get("title", "")
+                or (b.get("final_blog") or {}).get("render", {}).get("title", ""),
+                "language": (b.get("meta") or {}).get("language", "English"),
+                "tone": (b.get("meta") or {}).get("tone", ""),
+                "creativity": (b.get("meta") or {}).get("creativity", ""),
+                "created_by": b.get("owner_name", ""),
+                "owner_id": b.get("owner_id", ""),
+                "created_at": b.get("created_at"),
+                "published_at": b.get("published_at"),
+                "reviewed_at": (b.get("admin_review") or {}).get("reviewed_at"),
+                "reviewed_by": (b.get("admin_review") or {}).get("reviewed_by_name", ""),
+                "status": b.get("status", "published"),
+            }
+        )
+
+    return {"items": items, "page": page, "limit": limit, "total": total}
+
+
+# ---------------- ADMIN: APPROVE BLOG ---------------- 
+@router.post("/admin/blogs/{blog_id}/approve", response_model=dict)  # POST /admin/blogs/{blog_id}/approve
+async def approve_blog(blog_id: str, admin=Depends(require_admin)):
+    """Approve a blog for publishing"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    if b.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Blog is not pending approval")
+
+    now = datetime.utcnow()
+    updates = {
+        "status": "published",
+        "updated_at": now,
+        "published_at": now,
+        "admin_review.reviewed_at": now,
+        "admin_review.reviewed_by": admin["id"],
+        "admin_review.reviewed_by_name": admin["name"],
+        "admin_review.feedback": "",
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "status": "published"}
+
+
+# ---------------- ADMIN: REJECT BLOG ---------------- 
+@router.post("/admin/blogs/{blog_id}/reject", response_model=dict)  # POST /admin/blogs/{blog_id}/reject
+async def reject_blog(
+    blog_id: str,
+    feedback: str = Query("", description="Rejection feedback for the author"),
+    admin=Depends(require_admin),
+):
+    """Reject a blog and return it to saved status with feedback"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    if b.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Blog is not pending approval")
+
+    now = datetime.utcnow()
+    updates = {
+        "status": "saved",
+        "updated_at": now,
+        "admin_review.reviewed_at": now,
+        "admin_review.reviewed_by": admin["id"],
+        "admin_review.reviewed_by_name": admin["name"],
+        "admin_review.feedback": feedback or "Blog rejected. Please review and resubmit.",
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "status": "saved", "feedback": feedback}
+
+
+# ---------------- ADMIN: ADD COMMENT TO BLOG ---------------- 
+@router.post("/admin/blogs/{blog_id}/comment", response_model=dict)  # POST /admin/blogs/{blog_id}/comment
+async def add_blog_comment(
+    blog_id: str,
+    payload: BlogCommentIn,
+    admin=Depends(require_admin),
+):
+    """Add a comment/feedback to a blog (admin only)"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    now = datetime.utcnow()
+    # Update the feedback field with the comment
+    # If there's existing feedback, append the new comment
+    existing_feedback = (b.get("admin_review") or {}).get("feedback", "")
+    new_feedback = payload.comment.strip()
+    
+    if existing_feedback and new_feedback:
+        # Append new comment with separator
+        updated_feedback = f"{existing_feedback}\n\n--- {admin.get('name', 'Admin')} ({now.strftime('%Y-%m-%d %H:%M:%S')}) ---\n{new_feedback}"
+    else:
+        updated_feedback = new_feedback
+    
+    updates = {
+        "updated_at": now,
+        "admin_review.feedback": updated_feedback,
+    }
+    
+    # If blog is pending and hasn't been reviewed yet, update reviewed_by info
+    admin_review = b.get("admin_review") or {}
+    if not admin_review.get("reviewed_by"):
+        updates["admin_review.reviewed_by"] = admin["id"]
+        updates["admin_review.reviewed_by_name"] = admin["name"]
+    
+    update_blog(blog_id, updates)
+    return {"ok": True, "comment": new_feedback}
+
+
+# ---------------- CHANGE BLOG STATUS TO DRAFT ---------------- 
+@router.post("/blogs/{blog_id}/draft", response_model=dict)  # POST /blogs/{blog_id}/draft
+async def change_to_draft(blog_id: str, user=Depends(get_current_user)):
+    """Change a published blog back to draft (saved) status"""
+    b = get_blog_by_id(blog_id)
+    if not b:
+        raise HTTPException(status_code=404, detail="Blog not found")
+    
+    if b.get("owner_id") != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Not allowed")
+    
+    if b.get("status") != "published":
+        raise HTTPException(status_code=400, detail="Blog is not published")
+
+    now = datetime.utcnow()
+    updates = {
+        "status": "saved",
+        "updated_at": now,
+    }
+    update_blog(blog_id, updates)
+    return {"ok": True, "status": "saved"}

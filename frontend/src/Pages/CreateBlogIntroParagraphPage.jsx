@@ -1,5 +1,4 @@
-// src/screen/CreateBlogIntroParagraph.jsx
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
@@ -12,35 +11,94 @@ import NextButton from "../buttons/NextButton";
 
 import Radio from "../assets/radio.svg";
 import EmptyRadio from "../assets/empty-radio.svg";
+import { apiPost } from "../lib/api.js";
+import { loadDraft, saveDraft } from "../lib/storage.js";
 
 export default function CreateBlogIntroParagraphPage() {
-  const [mode, setMode] = useState("ai"); // "ai" | "manual"
+  const draft = loadDraft();
+  const initialMode = draft.intro_mode || "ai";
+  const initialAiIntros =
+    Array.isArray(draft.intro_options) && draft.intro_options.length
+      ? draft.intro_options
+      : initialMode === "ai" && draft.intro_md
+        ? [draft.intro_md]
+        : [];
+  const initialSelectedIndex = (() => {
+    if (
+      typeof draft.intro_selected_idx === "number" &&
+      initialAiIntros[draft.intro_selected_idx]
+    ) {
+      return draft.intro_selected_idx;
+    }
+    if (draft.intro_md) {
+      const idx = initialAiIntros.indexOf(draft.intro_md);
+      if (idx >= 0) return idx;
+    }
+    return 0;
+  })();
 
-  // AI state: empty => show button, after generate => show selectable list
-  const [aiIntros, setAiIntros] = useState([]);
-  const [selectedAiIndex, setSelectedAiIndex] = useState(0);
-
-  // Manual state
-  const [manualIntro, setManualIntro] = useState("");
+  const [mode, setMode] = useState(initialMode);
+  const [aiIntros, setAiIntros] = useState(initialAiIntros);
+  const [selectedAiIndex, setSelectedAiIndex] = useState(initialSelectedIndex);
+  const [manualIntro, setManualIntro] = useState(draft.intro_md || "");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const selectedIntro = useMemo(() => {
     if (mode === "manual") return manualIntro;
     return aiIntros[selectedAiIndex] || "";
   }, [mode, manualIntro, aiIntros, selectedAiIndex]);
 
-  const handleGenerate = () => {
-    // replace with your API call
-    const demo = [
-      "Artificial Intelligence is reshaping how we live and work—powering tools that learn from data, automate routine tasks, and unlock new creative possibilities. From personalized recommendations to smarter healthcare, AI is already influencing everyday decisions in subtle but powerful ways.",
-      "In the last decade, AI has moved from research labs into real products, changing industries at a rapid pace. As models become more capable, organizations and individuals are discovering new ways to use AI for productivity, creativity, and innovation—while also navigating new ethical questions.",
-      "Whether you're a student, a professional, or simply curious, understanding AI today is becoming essential. In this blog, we’ll explore what AI is, where it’s being used, and how its evolution may shape the future of society, careers, and technology.",
-    ];
-    setAiIntros(demo);
-    setSelectedAiIndex(0);
+  useEffect(() => {
+    saveDraft({ intro_md: selectedIntro, intro_mode: mode });
+  }, [selectedIntro, mode]);
+
+  useEffect(() => {
+    if (!aiIntros.length) return;
+    saveDraft({ intro_options: aiIntros, intro_selected_idx: selectedAiIndex });
+  }, [aiIntros, selectedAiIndex]);
+
+  const handleGenerate = async () => {
+    const payload = {
+      tone: draft.tone || "Formal",
+      creativity: draft.creativity || "Regular",
+      focus_or_niche: draft.focus_or_niche || draft.selected_idea || "",
+      targeted_keyword: draft.targeted_keyword || "",
+      targeted_audience: draft.targeted_audience || "",
+      reference_links: draft.reference_links || "",
+      selected_idea: draft.selected_idea || draft.focus_or_niche || "",
+      title: draft.title || "",
+    };
+
+    if (!payload.selected_idea || !payload.title) {
+      setError("Please complete blog details and title first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/intros", payload);
+      setAiIntros(data?.options || []);
+      setSelectedAiIndex(0);
+    } catch (err) {
+      setError(err?.message || "Failed to generate introductions.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditAiIntro = (value) => {
+    setAiIntros((prev) => {
+      if (!prev.length) return prev;
+      const next = [...prev];
+      next[selectedAiIndex] = value;
+      return next;
+    });
   };
 
   const AiList = (
-    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white ">
+    <div className="mt-4 border border-[#D1D5DB] rounded-[8px] bg-white">
       <div className="max-h-[210px] overflow-auto p-3 space-y-2">
         {aiIntros.map((t, idx) => {
           const active = idx === selectedAiIndex;
@@ -74,6 +132,55 @@ export default function CreateBlogIntroParagraphPage() {
     </div>
   );
 
+  const AiContent = aiIntros.length ? (
+    <div className="mt-2">
+      <div className="flex items-center justify-between">
+        <div className="text-[12px] font-medium text-[#111827]">
+          AI suggestions
+        </div>
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={loading}
+          className={[
+            "h-[34px] px-4 rounded-full text-[12px] font-medium",
+            loading
+              ? "bg-[#4443E4]/60 text-white cursor-not-allowed"
+              : "bg-[#4443E4] text-white hover:opacity-95",
+          ].join(" ")}
+        >
+          {loading ? "Regenerating..." : "Regenerate"}
+        </button>
+      </div>
+
+      {AiList}
+
+      <div className="mt-4">
+        <div className="text-[12px] font-medium text-[#111827] mb-2">
+          Edit selected introduction
+        </div>
+        <textarea
+          value={aiIntros[selectedAiIndex] || ""}
+          onChange={(e) => handleEditAiIntro(e.target.value)}
+          placeholder="Edit selected introduction..."
+          className="
+            w-full
+            h-[170px]
+            rounded-[8px]
+            border border-[#E5E7EB]
+            bg-[#F3F4F6]
+            px-4 py-3
+            text-[13px]
+            text-[#111827]
+            placeholder:text-[#9CA3AF]
+            outline-none
+            resize-none
+          "
+        />
+      </div>
+    </div>
+  ) : null;
+
   const ManualBox = (
     <div className="mt-4">
       <div className="text-[12px] font-medium text-[#111827] mb-2">
@@ -100,10 +207,12 @@ export default function CreateBlogIntroParagraphPage() {
     </div>
   );
 
+  const canNext = selectedIntro.trim().length > 0;
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
-      <HeaderBottomBar title="Content Management System" />
+      <HeaderBottomBar title="Content Management System" showNewBlogButton={false} />
 
       <div className="w-full flex">
         <Sidebar />
@@ -115,7 +224,6 @@ export default function CreateBlogIntroParagraphPage() {
 
           <IncreasingDotsInterface />
 
-          {/* helper text (like screenshot) */}
           <div className="mt-4 text-center text-[11px] text-[#111827] font-medium">
             Let&apos;s now write your blog introduction which will be the beginning of an
             amazing blog post. You will be able to edit it afterwards.
@@ -125,28 +233,34 @@ export default function CreateBlogIntroParagraphPage() {
             <GeneratorCard
               headerTitle="Generate an intro paragraph or write your own"
               options={[
-                { key: "ai", label: "Generate Title with AI" }, // keep label as your screenshot
+                { key: "ai", label: "Generate Title with AI" },
                 { key: "manual", label: "Write Manually" },
               ]}
               selectedKey={mode}
-              onSelect={setMode}
+              onSelect={(k) => {
+                setMode(k);
+                if (k === "manual" && !manualIntro.trim() && selectedIntro.trim()) {
+                  setManualIntro(selectedIntro);
+                }
+              }}
               centerTitle="Generate Blog Intro with AI"
               centerSubtitle="Click on this button to generate intro for your blog"
-              buttonText="Generate Blog Intro"
+              buttonText={loading ? "Generating..." : "Generate Blog Intro"}
               onButtonClick={handleGenerate}
+              buttonDisabled={loading}
             >
-              {/* same behavior as previous page */}
-              {mode === "ai" ? (aiIntros.length ? AiList : null) : ManualBox}
+              {mode === "ai" ? AiContent : ManualBox}
             </GeneratorCard>
           </div>
 
+          {error ? (
+            <div className="mt-3 text-[12px] text-[#DC2626] text-center">{error}</div>
+          ) : null}
+
           <div className="mt-6 flex items-center justify-between">
             <PreviousButton />
-            <NextButton />
+            <NextButton disabled={!canNext} />
           </div>
-
-          {/* debug */}
-          {/* <pre className="mt-4 text-xs">{selectedIntro}</pre> */}
         </div>
       </div>
     </div>

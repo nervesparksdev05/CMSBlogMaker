@@ -1,56 +1,296 @@
-// src/pages/CmsDashboard.jsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
 import FourCardsRow from "../interface/FourCardsRow";
 import TemplateTableCard from "../interface/TemplateTableCard";
+import { apiGet, apiRequest, API_BASE_URL } from "../lib/api.js";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
+
+const formatDate = (value) => {
+  try {
+    const d = new Date(value);
+    return d.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return "";
+  }
+};
+
+const toAbsoluteUrl = (src) => {
+  if (!src) return "";
+  if (src.startsWith("data:") || /^https?:\/\//i.test(src)) return src;
+  const cleaned = src.replace(/^\/+/, "");
+  return `${API_BASE_URL}/${cleaned}`;
+};
+
+const getImageKey = (src) => {
+  if (!src) return "";
+  if (src.startsWith("data:")) return src.slice(0, 64);
+  try {
+    const url = new URL(toAbsoluteUrl(src));
+    return url.pathname.replace(/\/+/, "/");
+  } catch {
+    return src;
+  }
+};
+
+const normalizeText = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+
+const normalizeHtmlImages = (html) => {
+  if (!html) return "";
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, "text/html");
+    const imgs = Array.from(doc.querySelectorAll("img"));
+    imgs.forEach((img) => {
+      const src = img.getAttribute("src") || "";
+      const absolute = toAbsoluteUrl(src);
+      if (absolute) img.setAttribute("src", absolute);
+      img.setAttribute("crossorigin", "anonymous");
+    });
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+};
+
+const waitForImages = async (root) => {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map((img) => {
+      if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+      return new Promise((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+    })
+  );
+};
+
+const buildBlogBlocks = (blog, summary) => {
+  const blocks = [];
+
+  const title =
+    blog?.meta?.title ||
+    blog?.final_blog?.render?.title ||
+    summary?.title ||
+    "Untitled Blog";
+  const createdDate = formatDate(blog?.created_at) || formatDate(summary?.created_at) || "";
+  const createdBy = blog?.owner_name || summary?.created_by || "";
+  const status = blog?.status || summary?.status || "";
+  const coverUrl = toAbsoluteUrl(
+    blog?.meta?.cover_image_url || blog?.final_blog?.render?.cover_image_url || ""
+  );
+  const html = blog?.final_blog?.html || "";
+
+  const header = document.createElement("section");
+  header.className = "pdf-blog pdf-block";
+  header.style.padding = "24px 32px 0";
+
+  const titleEl = document.createElement("h1");
+  titleEl.className = "pdf-title";
+  titleEl.textContent = title;
+  header.appendChild(titleEl);
+
+  const metaEl = document.createElement("div");
+  metaEl.className = "pdf-meta";
+  const metaLine = (label, value) => {
+    const line = document.createElement("div");
+    line.textContent = `${label}: ${value || "-"}`;
+    metaEl.appendChild(line);
+  };
+  metaLine("Created Date", createdDate);
+  metaLine("Created By", createdBy);
+  metaLine("Status", status);
+  header.appendChild(metaEl);
+
+  blocks.push(header);
+
+  if (coverUrl) {
+    const coverBlock = document.createElement("section");
+    coverBlock.className = "pdf-blog pdf-block";
+    coverBlock.style.padding = "12px 32px 0";
+
+    const cover = document.createElement("div");
+    cover.className = "pdf-cover";
+    const img = document.createElement("img");
+    img.src = coverUrl;
+    img.alt = "";
+    img.setAttribute("crossorigin", "anonymous");
+    cover.appendChild(img);
+    coverBlock.appendChild(cover);
+    blocks.push(coverBlock);
+  }
+
+  const body = document.createElement("div");
+  body.className = "pdf-body";
+  body.innerHTML = normalizeHtmlImages(html);
+  const firstHeading = body.querySelector("h1");
+  if (
+    firstHeading &&
+    normalizeText(firstHeading.textContent) &&
+    normalizeText(firstHeading.textContent) === normalizeText(title)
+  ) {
+    firstHeading.remove();
+  }
+  if (coverUrl) {
+    const coverKey = getImageKey(coverUrl);
+    const imgs = Array.from(body.querySelectorAll("img"));
+    const match = imgs.find((img) => getImageKey(img.getAttribute("src") || "") === coverKey);
+    if (match) match.remove();
+  }
+
+  const newBlock = () => {
+    const block = document.createElement("section");
+    block.className = "pdf-blog pdf-body pdf-block";
+    block.style.padding = "8px 32px 0";
+    return block;
+  };
+
+  let section = newBlock();
+  const children = Array.from(body.children);
+  children.forEach((child) => {
+    const tag = (child.tagName || "").toLowerCase();
+    if (tag === "h2" || tag === "h3") {
+      if (section.childNodes.length) {
+        blocks.push(section);
+        section = newBlock();
+      }
+    }
+    section.appendChild(child);
+    if (tag === "img") {
+      if (section.childNodes.length) {
+        blocks.push(section);
+        section = newBlock();
+      }
+    }
+  });
+
+  if (section.childNodes.length) {
+    blocks.push(section);
+  }
+
+  const last = blocks[blocks.length - 1];
+  if (last) {
+    last.style.paddingBottom = "24px";
+  }
+
+  return blocks;
+};
+
+const addCanvasToPdf = (doc, canvas, margin, cursor) => {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const imgWidth = pageWidth - margin * 2;
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  const pageBodyHeight = pageHeight - margin * 2;
+
+  if (imgHeight > pageBodyHeight) {
+    if (cursor.y !== margin) {
+      doc.addPage();
+      cursor.y = margin;
+    }
+    let position = 0;
+    while (position < imgHeight - 1) {
+      if (position > 0) {
+        doc.addPage();
+        cursor.y = margin;
+      }
+      doc.addImage(canvas, "PNG", margin, margin - position, imgWidth, imgHeight);
+      position += pageBodyHeight;
+    }
+    const remainder = imgHeight % pageBodyHeight;
+    cursor.y = margin + (remainder > 1 ? remainder : 0);
+    if (cursor.y + 12 > pageHeight - margin) {
+      doc.addPage();
+      cursor.y = margin;
+    }
+    return;
+  }
+
+  if (cursor.y + imgHeight > pageHeight - margin) {
+    doc.addPage();
+    cursor.y = margin;
+  }
+  doc.addImage(canvas, "PNG", margin, cursor.y, imgWidth, imgHeight);
+  cursor.y += imgHeight + 12;
+};
+
+const fetchAllBlogSummaries = async () => {
+  const limit = 50;
+  let page = 1;
+  let items = [];
+  let total = 0;
+
+  while (true) {
+    const list = await apiGet(`/blog?page=${page}&limit=${limit}`);
+    const chunk = list?.items || [];
+    total = list?.total ?? total;
+    items = items.concat(chunk);
+    if (!chunk.length || (total && items.length >= total)) {
+      break;
+    }
+    page += 1;
+  }
+
+  return items;
+};
 
 export default function CmsHomePage() {
-  const [rows, setRows] = useState([
-    {
-      id: 1,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Informative",
-      creativity: "Regular",
-      createdDate: "22 Jan 2022",
-      createdBy: "Admin",
-      status: "Saved",
-    },
-    {
-      id: 2,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Formal",
-      creativity: "Regular",
-      createdDate: "20 Jan 2022",
-      createdBy: "Admin",
-      status: "Saved",
-    },
-    {
-      id: 3,
-      blogTitle: "Lorem ipsum dolor",
-      language: "English",
-      tone: "Serious",
-      creativity: "High",
-      createdDate: "18 Jan 2022",
-      createdBy: "Admin",
-      status: "Published",
-    },
-  ]);
+  const navigate = useNavigate();
 
+  const [rows, setRows] = useState([]);
+  const [stats, setStats] = useState({
+    total_blogs: 0,
+    saved_blogs: 0,
+    pending_blogs: 0,
+    published_blogs: 0,
+    generated_images: 0,
+  });
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
 
-  // ✅ keep selection valid if rows change
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const statData = await apiGet("/blogs/stats");
+        setStats(statData || {});
+      } catch {
+        // ignore
+      }
+
+      try {
+        const list = await apiGet("/blog?page=1&limit=10");
+        const items = (list?.items || []).map((item) => ({
+          id: item.id,
+          blogTitle: item.title,
+          language: item.language || "English",
+          tone: item.tone || "",
+          creativity: item.creativity || "",
+          createdDate: formatDate(item.created_at),
+          createdBy: item.created_by,
+          status: item.status,
+        }));
+        setRows(items);
+      } catch {
+        setRows([]);
+      }
+    };
+    load();
+  }, []);
+
   useEffect(() => {
     const ids = new Set(rows.map((r) => r.id));
     setSelectedIds((prev) => prev.filter((id) => ids.has(id)));
   }, [rows]);
-
-  const getRowId = (r) => r.id;
 
   const onToggleRow = (id) => {
     setSelectedIds((prev) =>
@@ -58,63 +298,115 @@ export default function CmsHomePage() {
     );
   };
 
-  const onToggleAll = (nextIds) => {
-    setSelectedIds(nextIds);
-  };
+  const onToggleAll = (nextIds) => setSelectedIds(nextIds);
 
-  const onDeleteRow = (row) => {
-    setRows((prev) => prev.filter((r) => r.id !== row.id));
-  };
-
-  const onDeleteAll = () => {
-    if (selectedIds.length) {
-      const sel = new Set(selectedIds);
-      setRows((prev) => prev.filter((r) => !sel.has(r.id)));
-      setSelectedIds([]);
-      return;
+  const onDeleteRow = async (row) => {
+    try {
+      await apiRequest(`/blogs/${row.id}`, { method: "DELETE" });
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+    } catch {
+      // ignore
     }
-    setRows([]);
+  };
+
+  const onDeleteAll = async () => {
+    const ids = selectedIds.length ? selectedIds : rows.map((r) => r.id);
+    for (const id of ids) {
+      try {
+        await apiRequest(`/blogs/${id}`, { method: "DELETE" });
+      } catch {
+        // ignore
+      }
+    }
+    setRows((prev) => prev.filter((r) => !ids.includes(r.id)));
     setSelectedIds([]);
   };
 
-  const onDownloadAll = () => {
-    const headers = [
-      "blogTitle",
-      "language",
-      "tone",
-      "creativity",
-      "createdDate",
-      "createdBy",
-      "status",
-    ];
+  const onDownloadAll = async () => {
+    if (downloading) return;
 
-    const escapeCsv = (v) => {
-      const s = String(v ?? "");
-      if (/[",\n]/.test(s)) return `"${s.replaceAll('"', '""')}"`;
-      return s;
-    };
+    try {
+      setDownloading(true);
+      setDownloadError("");
 
-    const csv = [
-      headers.join(","),
-      ...rows.map((r) => headers.map((h) => escapeCsv(r[h])).join(",")),
-    ].join("\n");
+      const summaries = await fetchAllBlogSummaries();
+      if (!summaries.length) return;
 
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
+      const mount = document.createElement("div");
+      mount.style.position = "fixed";
+      mount.style.left = "-10000px";
+      mount.style.top = "0";
+      mount.style.width = "820px";
+      mount.style.background = "#ffffff";
+      mount.style.color = "#111827";
+      mount.style.pointerEvents = "none";
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "blogs.csv";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+      const style = document.createElement("style");
+      style.textContent = `
+        .pdf-blog { font-family: Arial, sans-serif; color: #111827; }
+        .pdf-block { width: 760px; box-sizing: border-box; }
+        .pdf-title { font-size: 20px; font-weight: 700; margin: 0 0 8px; }
+        .pdf-meta { font-size: 12px; color: #4B5563; margin-bottom: 12px; }
+        .pdf-cover { margin: 12px 0 16px; border-radius: 12px; overflow: hidden; }
+        .pdf-cover img { width: 100%; height: auto; max-height: 360px; object-fit: cover; display: block; }
+        .pdf-body { font-size: 12px; line-height: 1.7; }
+        .pdf-body h1 { font-size: 18px; margin: 16px 0 8px; }
+        .pdf-body h2 { font-size: 16px; margin: 14px 0 8px; }
+        .pdf-body h3 { font-size: 14px; margin: 12px 0 6px; }
+        .pdf-body p { margin: 8px 0; }
+        .pdf-body ul { margin: 8px 0 8px 18px; }
+        .pdf-body img { max-width: 100%; max-height: 420px; object-fit: cover; border-radius: 8px; margin: 10px 0; }
+      `;
+      mount.appendChild(style);
+      document.body.appendChild(mount);
 
-    URL.revokeObjectURL(url);
+      const doc = new jsPDF({ unit: "pt", format: "a4", orientation: "portrait" });
+      const margin = 40;
+      const cursor = { y: margin };
+
+      for (let i = 0; i < summaries.length; i += 1) {
+        let blog;
+        try {
+          blog = await apiGet(`/blogs/${summaries[i].id}`);
+        } catch {
+          blog = null;
+        }
+
+        if (i > 0) {
+          doc.addPage();
+          cursor.y = margin;
+        }
+
+        const blocks = buildBlogBlocks(blog, summaries[i]);
+        for (const block of blocks) {
+          mount.appendChild(block);
+          await waitForImages(block);
+
+          const canvas = await html2canvas(block, {
+            scale: 2,
+            useCORS: true,
+            backgroundColor: "#ffffff",
+          });
+          addCanvasToPdf(doc, canvas, margin, cursor);
+          mount.removeChild(block);
+        }
+      }
+
+      document.body.removeChild(mount);
+      doc.save("blogs.pdf");
+    } catch (err) {
+      setDownloadError(err?.message || "Failed to generate PDF.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  const onViewDetails = (row) => {
+    navigate(`/create-blog/generated?id=${row.id}&view=1`);
   };
 
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
-      {/* ✅ Sticky header stack */}
       <div className="sticky top-0 z-50 w-full">
         <MainHeader />
         <HeaderBottomBar title="Content Management System" />
@@ -125,7 +417,12 @@ export default function CmsHomePage() {
 
         <div className="flex-1">
           <div className="px-8 py-6">
-            <FourCardsRow />
+            <FourCardsRow
+              blogsGenerated={stats.total_blogs}
+              savedBlogs={stats.saved_blogs}
+              generatedImages={stats.generated_images}
+              publishedBlogs={stats.published_blogs}
+            />
 
             <div className="mt-8">
               <TemplateTableCard
@@ -138,22 +435,28 @@ export default function CmsHomePage() {
                 onSearchChange={setSearch}
                 onDeleteAll={onDeleteAll}
                 onDownloadAll={onDownloadAll}
+                downloadAllLabel={downloading ? "Preparing PDF..." : "Download All Blog as PDF"}
+                downloadAllDisabled={downloading || rows.length === 0}
+                showActions={false}
                 selectable
                 selectedIds={selectedIds}
                 onToggleRow={onToggleRow}
                 onToggleAll={onToggleAll}
-                getRowId={getRowId}
+                getRowId={(r) => r.id}
+                showDots
                 onDeleteRow={onDeleteRow}
-                // ✅ IMPORTANT: DO NOT pass onViewDetails
-                // so TemplateTableCard opens its default details modal
+                onViewDetails={onViewDetails}
               />
+              {downloadError ? (
+                <div className="mt-3 text-[12px] text-[#DC2626]">{downloadError}</div>
+              ) : null}
             </div>
 
             <div className="mt-10 flex justify-center">
               <button
                 type="button"
                 className="text-[16px] font-medium text-[#2563EB] hover:underline"
-                onClick={() => console.log("Show All clicked")}
+                onClick={() => navigate("/saved-blogs")}
               >
                 Show All
               </button>

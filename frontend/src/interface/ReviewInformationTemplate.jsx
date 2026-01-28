@@ -1,53 +1,54 @@
 // src/interface/ReviewInformationTemplate.jsx
 import ReviewIcon from "../assets/review-icon.svg";
+import PenIcon from "../assets/pen-icon.svg";
 
-function PencilIcon({ size = 14 }) {
+function SectionTop({ title, helper, editText = "change", onEdit }) {
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden="true"
-    >
-      <path
-        d="M12 20h9"
-        stroke="#4443E4"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-      <path
-        d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4L16.5 3.5Z"
-        stroke="#4443E4"
-        strokeWidth="2"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+    <div className="flex items-start justify-between gap-8">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between">
+          <div className="text-[20px] font-semibold text-[#111827]">{title}</div>
 
-function SectionTop({ title, helper, onEdit, editText = "Edit" }) {
-  return (
-    <div className="flex items-start justify-between gap-6">
-      <div>
-        <div className="text-[16px] font-semibold text-[#111827]">{title}</div>
+          {/* ✅ clickable change button */}
+          <button
+            type="button"
+            onClick={onEdit}
+            disabled={!onEdit}
+            className={[
+              "shrink-0 flex items-center gap-2 text-[14px] font-medium",
+              onEdit
+                ? "text-[#4443E4] hover:opacity-90"
+                : "text-[#9CA3AF] cursor-not-allowed",
+            ].join(" ")}
+            aria-label={`Change ${title}`}
+            title={onEdit ? `Change ${title}` : "No action"}
+          >
+            <img
+              src={PenIcon}
+              alt=""
+              className={[
+                "w-[14px] h-[14px]",
+                onEdit ? "opacity-100" : "opacity-60",
+              ].join(" ")}
+            />
+            {editText}
+          </button>
+        </div>
+
         {helper ? (
-          <p className="mt-[6px] text-[11px] leading-[16px] text-[#6B7280] max-w-[980px]">
+          <p className="mt-2 text-[13px] leading-[20px] text-[#6B7280] max-w-[980px]">
             {helper}
           </p>
         ) : null}
       </div>
+    </div>
+  );
+}
 
-      {typeof onEdit === "function" ? (
-        <button
-          type="button"
-          onClick={onEdit}
-          className="flex items-center gap-[6px] text-[12px] font-medium text-[#4443E4] hover:opacity-90"
-        >
-          <PencilIcon size={14} />
-          {editText}
-        </button>
-      ) : null}
+function Label({ children }) {
+  return (
+    <div className="text-[14px] font-semibold text-[#111827] mb-2">
+      {children}
     </div>
   );
 }
@@ -56,9 +57,10 @@ function ReadonlyBox({ value, className = "" }) {
   return (
     <div
       className={[
-        "w-full min-h-[44px] rounded-[6px] border border-[#E5E7EB] bg-white",
-        "px-[14px] py-[10px]",
-        "text-[13px] text-[#374151]",
+        "w-full rounded-[10px] border border-[#E5E7EB] bg-white",
+        "px-4 py-3",
+        "text-[15px] text-[#111827]",
+        "leading-[22px]",
         className,
       ].join(" ")}
     >
@@ -68,14 +70,10 @@ function ReadonlyBox({ value, className = "" }) {
 }
 
 export default function ReviewInformationTemplate({
-  // header
   pageTitle = "Review Information",
-
-  // common helper (matches screenshot lorem)
   helperText =
     "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.",
 
-  // BLOG DETAILS
   blogLanguage = "English",
   blogTone = "Informative",
   blogCreativity = "Regular",
@@ -84,18 +82,12 @@ export default function ReviewInformationTemplate({
   blogKeywords = "Tech, AI, Startups, Learners",
   blogAudience = "Researchers, Students, Tech Enthusiasts",
   blogReferences = "www.example.com, www.example2.com, www.example3.com",
-  onEditBlogDetails,
 
-  // BLOG TITLE
   blogTitle = "The AI Revolution: Transforming Society as We Know It",
-  onEditBlogTitle,
 
-  // BLOG INTRODUCTION
   blogIntro =
     "Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum dolor sit amet consectetur. Congue et fringilla dictum ac id elit porttitor interdum sit.Lorem ipsum interdum sit.Lorem ipsum",
-  onEditBlogIntro,
 
-  // BLOG OUTLINE
   blogOutline = [
     "Introduction to Artificial Intelligence (AI)",
     "What is AI and How Does It Work?",
@@ -110,159 +102,167 @@ export default function ReviewInformationTemplate({
     "Government Regulation and Oversight of AI",
     "Conclusion: Embracing the Potential of AI while Addressing",
   ],
-  onEditBlogOutline,
 
-  // HEADER IMAGE
   headerImageSrc = "",
-  onEditHeaderImage,
+
+  // ✅ NEW: edit handlers (wire these from ReviewInfoPage)
+  onEditBlogDetails,
+  onEditBlogTitle,
+  onEditBlogIntro,
+  onEditBlogOutline,
+  onEditBlogImage,
 }) {
   return (
-    <div className="w-full ">
-      <div className="w-full rounded-[10px] px-[22px] py-[18px]">
+    <div className="w-full flex justify-center">
+      <div className="w-full max-w-[980px] rounded-[12px] border border-[#E5E7EB] bg-white shadow-sm px-10 py-8">
         {/* Page Header */}
-        <div className="flex items-center gap-[10px]">
-          <div className="w-[22px] h-[22px] flex items-center justify-center">
-            <img src={ReviewIcon} alt="" className="w-[18px] h-[18px]" />
+        <div className="flex items-center gap-3">
+          <div className="w-[34px] h-[34px] flex items-center justify-center rounded-[10px]">
+            <img src={ReviewIcon} alt="" className="w-[28px] h-[28px]" />
           </div>
-
-          <div className="text-[16px] font-semibold text-[#111827]">
+          <div className="text-[24px] font-semibold text-[#111827]">
             {pageTitle}
           </div>
         </div>
 
         {/* BLOG DETAILS */}
-        <div className="mt-[18px]">
-          <SectionTop title="Blog Details" helper={helperText} onEdit={onEditBlogDetails} />
+        <div className="mt-8">
+          <SectionTop
+            title="Blog Details"
+            helper={helperText}
+            onEdit={onEditBlogDetails} // ✅ /create-blog
+          />
 
-          {/* 3 fields row */}
-          <div className="mt-[14px] grid grid-cols-3 gap-[18px]">
+          <div className="mt-6 grid grid-cols-3 gap-6">
             <div>
-              <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-                Language
-              </div>
-              <ReadonlyBox value={blogLanguage} className="h-[40px] flex items-center py-0" />
-            </div>
-
-            <div>
-              <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-                Tone of Blog
-              </div>
-              <ReadonlyBox value={blogTone} className="h-[40px] flex items-center py-0" />
+              <Label>Language</Label>
+              <ReadonlyBox
+                value={blogLanguage}
+                className="h-[48px] flex items-center py-0"
+              />
             </div>
 
             <div>
-              <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-                Creativity
-              </div>
-              <ReadonlyBox value={blogCreativity} className="h-[40px] flex items-center py-0" />
+              <Label>Tone of Blog</Label>
+              <ReadonlyBox
+                value={blogTone}
+                className="h-[48px] flex items-center py-0"
+              />
+            </div>
+
+            <div>
+              <Label>Creativity</Label>
+              <ReadonlyBox
+                value={blogCreativity}
+                className="h-[48px] flex items-center py-0"
+              />
             </div>
           </div>
 
-          {/* About */}
-          <div className="mt-[16px]">
-            <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-              What do you want me to write about?
-            </div>
-            <ReadonlyBox value={blogAbout} className="min-h-[56px]" />
+          <div className="mt-6">
+            <Label>What do you want me to write about?</Label>
+            <ReadonlyBox value={blogAbout} className="min-h-[70px]" />
           </div>
 
-          {/* Keywords */}
-          <div className="mt-[14px]">
-            <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-              Target Keywords
-            </div>
-            <ReadonlyBox value={blogKeywords} className="h-[44px] flex items-center py-0" />
+          <div className="mt-6">
+            <Label>Target Keywords</Label>
+            <ReadonlyBox
+              value={blogKeywords}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
 
-          {/* Audience */}
-          <div className="mt-[14px]">
-            <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-              Target Audience
-            </div>
-            <ReadonlyBox value={blogAudience} className="h-[44px] flex items-center py-0" />
+          <div className="mt-6">
+            <Label>Target Audience</Label>
+            <ReadonlyBox
+              value={blogAudience}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
 
-          {/* References */}
-          <div className="mt-[14px]">
-            <div className="text-[12px] font-semibold text-[#111827] mb-[6px]">
-              Reference Links
-            </div>
-            <ReadonlyBox value={blogReferences} className="h-[44px] flex items-center py-0" />
+          <div className="mt-6">
+            <Label>Reference Links</Label>
+            <ReadonlyBox
+              value={blogReferences}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
         </div>
 
         {/* BLOG TITLE */}
-        <div className="mt-[24px] pt-[16px]">
-          <SectionTop title="Blog Title" helper={helperText} onEdit={onEditBlogTitle} />
-          <div className="mt-[12px]">
-            <ReadonlyBox value={blogTitle} className="h-[44px] flex items-center py-0" />
+        <div className="mt-10 pt-8 border-t border-[#EEF2F7]">
+          <SectionTop
+            title="Blog Title"
+            helper={helperText}
+            onEdit={onEditBlogTitle} // ✅ /create-blog/title
+          />
+          <div className="mt-4">
+            <ReadonlyBox
+              value={blogTitle}
+              className="h-[48px] flex items-center py-0"
+            />
           </div>
         </div>
 
         {/* BLOG INTRODUCTION */}
-        <div className="mt-[24px] pt-[16px]">
+        <div className="mt-10 pt-8 border-t border-[#EEF2F7]">
           <SectionTop
             title="Blog Introduction"
             helper={helperText}
-            onEdit={onEditBlogIntro}
+            onEdit={onEditBlogIntro} // ✅ /create-blog/intro
           />
-          <div className="mt-[12px]">
-            <ReadonlyBox value={blogIntro} className="min-h-[72px]" />
+          <div className="mt-4">
+            <ReadonlyBox value={blogIntro} className="min-h-[90px]" />
           </div>
         </div>
 
         {/* BLOG OUTLINED */}
-        <div className="mt-[24px] pt-[16px]">
-          <SectionTop title="Blog Outlined" helper={helperText} onEdit={onEditBlogOutline} />
+        <div className="mt-10 pt-8 border-t border-[#EEF2F7]">
+          <SectionTop
+            title="Blog Outlined"
+            helper={helperText}
+            onEdit={onEditBlogOutline} // ✅ /create-blog/outline
+          />
 
-          <div className="mt-[12px] w-full rounded-[6px] border border-[#E5E7EB] bg-white px-[14px] py-[12px]">
-            <ul className="list-disc pl-[18px] text-[13px] text-[#111827] space-y-[6px]">
+          <div className="mt-4 w-full rounded-[10px] border border-[#E5E7EB] bg-white px-5 py-4">
+            <ul className="list-disc pl-5 text-[15px] text-[#111827] space-y-2">
               {Array.isArray(blogOutline) &&
                 blogOutline.map((item, idx) => {
-                  // Support nested bullet list (like Healthcare, Manufacturing...)
                   if (Array.isArray(item)) {
                     return (
-                      <ul
-                        key={`nested-${idx}`}
-                        className="list-disc pl-[18px] mt-[6px] space-y-[6px]"
-                      >
-                        {item.map((sub, j) => (
-                          <li key={`sub-${idx}-${j}`} className="text-[#111827]">
-                            {sub}
-                          </li>
-                        ))}
-                      </ul>
+                      <li key={`nest-wrap-${idx}`} className="list-none">
+                        <ul className="list-disc pl-6 mt-1 space-y-2">
+                          {item.map((sub, j) => (
+                            <li key={`sub-${idx}-${j}`}>{sub}</li>
+                          ))}
+                        </ul>
+                      </li>
                     );
                   }
-
-                  return (
-                    <li key={`li-${idx}`} className="text-[#111827]">
-                      {item}
-                    </li>
-                  );
+                  return <li key={`li-${idx}`}>{item}</li>;
                 })}
             </ul>
           </div>
         </div>
 
         {/* HEADER SELECTED IMAGE */}
-        <div className="mt-[24px] pt-[16px]">
+        <div className="mt-10 pt-8 border-t border-[#EEF2F7]">
           <SectionTop
             title="Header Selected Image"
             helper={helperText}
-            onEdit={onEditHeaderImage}
+            onEdit={onEditBlogImage} // ✅ /create-blog/image
           />
 
-          <div className="mt-[12px] flex justify-center">
-            <div className="w-full max-w-[560px]">
+          <div className="mt-5 flex justify-center">
+            <div className="w-full max-w-[640px]">
               {headerImageSrc ? (
                 <img
                   src={headerImageSrc}
                   alt="Header Selected"
-                  className="w-full rounded-[6px] border border-[#E5E7EB] object-cover"
+                  className="w-full h-[260px] rounded-[10px] border border-[#E5E7EB] object-cover"
                 />
               ) : (
-                <div className="w-full h-[220px] rounded-[6px] border border-dashed border-[#D1D5DB] bg-[#F9FAFB] flex items-center justify-center text-[13px] text-[#6B7280]">
+                <div className="w-full h-[260px] rounded-[10px] border border-dashed border-[#D1D5DB] bg-[#F9FAFB] flex items-center justify-center text-[14px] text-[#6B7280]">
                   No image selected
                 </div>
               )}

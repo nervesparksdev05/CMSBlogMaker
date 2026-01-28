@@ -7,10 +7,13 @@ class SignupIn(BaseModel):
     name: str
     email: EmailStr
     password: str
+    role: Literal["user", "admin"] = "user"   # keep role
+
 
 class LoginIn(BaseModel):
     email: EmailStr
     password: str
+
 
 class UserOut(BaseModel):
     id: str
@@ -18,16 +21,50 @@ class UserOut(BaseModel):
     email: EmailStr
     role: Literal["user", "admin"]
 
+
+class AdminBlogMiniOut(BaseModel):
+    id: str
+    title: str = ""
+    status: Literal["saved", "pending", "published", "rejected"]
+    created_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+
+
+class AdminBlogCountsOut(BaseModel):
+    saved: int = 0
+    pending: int = 0
+    published: int = 0
+    rejected: int = 0
+
+
+class AdminUserWithBlogsOut(BaseModel):
+    id: str
+    name: str
+    email: EmailStr
+    role: Literal["user", "admin"]
+    created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+    blog_counts: AdminBlogCountsOut = AdminBlogCountsOut()
+    blogs: List[AdminBlogMiniOut] = []
+
+
+class AdminDataOut(BaseModel):
+    users: List[AdminUserWithBlogsOut] = []
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
+    admin_data: Optional[AdminDataOut] = None  # ✅ needed for admin login response
+
 
 # ---------------- BLOG CONTENT (FINAL ONLY) ----------------
 class BlogSection(BaseModel):
     heading: str
     body_md: str
     bullets: List[str] = []
+
 
 class BlogRender(BaseModel):
     title: str
@@ -37,16 +74,18 @@ class BlogRender(BaseModel):
     conclusion_md: str = ""
     references: List[str] = []
 
+
 class FinalBlog(BaseModel):
     """
     What preview shows side-by-side:
     - html (left)
     - markdown (right)
-    And what we store in MongoDB.
+    And what we store in Firestore.
     """
     render: BlogRender
     markdown: str
     html: str
+
 
 # Metadata that came from your multi-step form (final selected/manual only)
 class BlogMeta(BaseModel):
@@ -67,6 +106,7 @@ class BlogMeta(BaseModel):
     image_prompt: str = ""
     cover_image_url: str = ""
 
+
 class AdminReview(BaseModel):
     requested_at: Optional[datetime] = None
     reviewed_at: Optional[datetime] = None
@@ -74,12 +114,19 @@ class AdminReview(BaseModel):
     reviewed_by_name: Optional[str] = None
     feedback: str = ""
 
+
+class BlogCommentIn(BaseModel):
+    """Schema for adding a comment to a blog"""
+    comment: str
+
+
 class BlogCreateIn(BaseModel):
     """
     Store only final blog + final metadata.
     """
     meta: BlogMeta
     final_blog: FinalBlog
+
 
 class BlogOut(BaseModel):
     id: str
@@ -95,6 +142,7 @@ class BlogOut(BaseModel):
     updated_at: datetime
     published_at: Optional[datetime] = None
 
+
 class BlogListItem(BaseModel):
     id: str
     title: str
@@ -102,8 +150,10 @@ class BlogListItem(BaseModel):
     created_at: datetime
     status: Literal["saved", "pending", "published", "rejected"]
 
+
 # ---------------- AI INPUTS ----------------
-AI_OPTIONS_COUNT = 5  # always 5
+AI_OPTIONS_COUNT = 5  # default count
+AI_OPTIONS_MAX = 10
 
 class TopicIdeasIn(BaseModel):
     # first page dialog box input
@@ -114,6 +164,8 @@ class TopicIdeasIn(BaseModel):
 
     tone: str
     creativity: str
+    count: int = Field(default=AI_OPTIONS_COUNT, ge=1, le=AI_OPTIONS_MAX)
+
 
 class TitlesIn(BaseModel):
     tone: str
@@ -123,6 +175,7 @@ class TitlesIn(BaseModel):
     targeted_audience: str = ""
     reference_links: str = ""
     selected_idea: str
+
 
 class ImagePromptsIn(BaseModel):
     tone: str
@@ -134,6 +187,7 @@ class ImagePromptsIn(BaseModel):
     selected_idea: str
     title: str
 
+
 class IntrosIn(BaseModel):
     tone: str
     creativity: str
@@ -143,6 +197,7 @@ class IntrosIn(BaseModel):
     reference_links: str = ""
     selected_idea: str
     title: str
+
 
 class OutlinesIn(BaseModel):
     tone: str
@@ -154,6 +209,7 @@ class OutlinesIn(BaseModel):
     selected_idea: str
     title: str
     intro_md: str
+
 
 class ImageGenerateIn(BaseModel):
     # plus past info (passed as context)
@@ -168,10 +224,20 @@ class ImageGenerateIn(BaseModel):
     aspect_ratio: Literal["1:1", "4:3", "3:4", "16:9", "9:16"] = "4:3"
     quality: Literal["low", "medium", "high"] = "high"
     primary_color: str = "#4443E4"
+    source: Literal["blog", "nano"] = "nano"
+    save_to_gallery: bool = True
+
+
+class ImageSaveIn(BaseModel):
+    image_url: str
+    meta: dict = {}
+    source: Optional[str] = None
+
 
 class ImageOut(BaseModel):
     image_url: str
     meta: dict
+
 
 class GenerateBlogIn(BaseModel):
     """
@@ -191,6 +257,8 @@ class GenerateBlogIn(BaseModel):
     outline: List[str]
 
     cover_image_url: str = ""
+    primary_color: str = "#4443E4"  # Color code theme for high quality generation
+
 
 class OptionsOut(BaseModel):
-    options: List[str]  # always 5
+    options: List[str]

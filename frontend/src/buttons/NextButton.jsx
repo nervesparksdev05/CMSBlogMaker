@@ -7,8 +7,9 @@ const STEPS = [
   "/create-blog/title",
   "/create-blog/intro",
   "/create-blog/outline",
-  "/create-blog/image",  // ✅ Image first
-  "/create-blog/review", // ✅ Verify Content last
+  "/create-blog/image",
+  "/create-blog/review", // ✅ Verify Content first
+    // ✅ Image last
 ];
 
 export default function NextButton({ disabled = false, className = "" }) {
@@ -45,7 +46,12 @@ export default function NextButton({ disabled = false, className = "" }) {
       ].join(" ")}
     >
       Next
-      <img src={RightArrow} alt="" className="w-[16px] h-[16px]" draggable="false" />
+      <img
+        src={RightArrow}
+        alt=""
+        className="w-[16px] h-[16px]"
+        draggable="false"
+      />
     </button>
   );
 }

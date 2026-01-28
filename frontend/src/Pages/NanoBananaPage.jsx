@@ -1,11 +1,12 @@
-// src/pages/NanoBananaPage.jsx
-import { useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import MainHeader from "../interface/MainHeader";
 import HeaderBottomBar from "../interface/HeaderBottomBar";
 import Sidebar from "../interface/SidebarInterface";
-import NanoBananaImageCard from "../interface/NanoBananaImageCard";
+import NanoBananaTemplateCard from "../interface/NanoBananaTemplateCard.jsx";
 import GenerateImageIcon from "../assets/generate-image.svg";
+import { apiGet, apiPost } from "../lib/api.js";
 
 function RatioOption({ label, value, selected, onChange }) {
   return (
@@ -32,17 +33,22 @@ function RatioOption({ label, value, selected, onChange }) {
 }
 
 export default function NanoBananaPage() {
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState(
-    `A sleek, futuristic dashboard or data visualization. On the left, a blurry, impressionistic "VIBES" meter with a needle wobbling uncertainly. On the right, a clear, crisp set of digital gauges and graphs showing various metrics (e.g., "Context Recall: 85%", "Faithfulness: 92%"). A green checkmark or "SUCCESS" indicator.`
+    "A sleek, futuristic dashboard with clear data gauges and a success checkmark."
   );
-
-  const [ratio, setRatio] = useState("1:1"); // 1:1 | 4:3 | 3:4
-  const [quality, setQuality] = useState("standard"); // standard | high
+  const [ratio, setRatio] = useState("1:1");
+  const [quality, setQuality] = useState("standard");
   const [primaryColor, setPrimaryColor] = useState("#F2B233");
+  const [generatedImages, setGeneratedImages] = useState([]);
+  const [pendingImage, setPendingImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
-  // reference images upload
   const fileInputRef = useRef(null);
-  const [referenceFiles, setReferenceFiles] = useState([]); // File[]
+  const [referenceFiles, setReferenceFiles] = useState([]);
   const referencePreviews = useMemo(() => {
     return referenceFiles.map((f) => ({
       name: f.name,
@@ -57,45 +63,70 @@ export default function NanoBananaPage() {
     e.target.value = "";
   };
 
+  const removeReferenceAt = (idx) => {
+    setReferenceFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const clearForm = () => {
     setPrompt("");
     setRatio("1:1");
     setQuality("standard");
     setPrimaryColor("#F2B233");
     setReferenceFiles([]);
+    setPendingImage(null);
+    setError("");
   };
 
   const onGenerate = async () => {
-    alert("TODO: Call backend to generate image");
+    if (!prompt.trim()) {
+      setError("Please enter a prompt.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      const data = await apiPost("/ai/image-generate", {
+        tone: "Formal",
+        creativity: "Regular",
+        focus_or_niche: prompt,
+        targeted_keyword: "",
+        selected_idea: prompt,
+        title: "Generated Image",
+        prompt,
+        aspect_ratio: ratio,
+        quality: quality === "high" ? "high" : "medium",
+        primary_color: primaryColor,
+        source: "nano",
+        save_to_gallery: false,
+      });
+      if (data?.image_url) {
+        setLoadError("");
+        setPendingImage({
+          id: `pending-${Date.now()}-${Math.random()}`,
+          src: data.image_url,
+          title: "Nano Banana",
+          subtitle: data?.meta?.prompt || "",
+          meta: data?.meta || {},
+        });
+      }
+    } catch (err) {
+      setError(err?.message || "Failed to generate image.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Mock previous images (replace with API)
-  const previousImages = useMemo(
-    () => [
-      { id: 1, src: "/images/demo1.png", title: "Bonsai 1" },
-      { id: 2, src: "/images/demo2.png", title: "Bonsai 2" },
-      { id: 3, src: "/images/demo3.png", title: "Portrait" },
-    ],
-    []
-  );
-
-  // ✅ native color picker positioning near the widget
   const colorAnchorRef = useRef(null);
   const colorInputRef = useRef(null);
 
   const openColorPickerNearWidget = () => {
     const input = colorInputRef.current;
     if (!input) return;
-
-    // (optional) ensure it's visually near the widget for consistent UX,
-    // but still uses the SAME native <input type="color"> (no extra widget copy).
-    // Some browsers ignore moving the native color dialog (it's OS-controlled),
-    // but this guarantees the click happens from the right place.
     input.focus();
     input.click();
   };
 
-  // (optional) keep the hidden input positioned near the anchor (for browsers that care)
   const [colorPos, setColorPos] = useState({ left: 0, top: 0 });
   useLayoutEffect(() => {
     const el = colorAnchorRef.current;
@@ -108,6 +139,64 @@ export default function NanoBananaPage() {
     });
   }, [primaryColor]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const loadImages = async () => {
+      try {
+        setLoadError("");
+        const data = await apiGet("/images?limit=24&source=nano");
+        if (ignore) return;
+        const items = (data?.items || []).map((img) => ({
+          id: img.id,
+          src: img.image_url,
+          title: "Nano Banana",
+          subtitle: img?.meta?.prompt || "",
+        }));
+        setGeneratedImages(items);
+      } catch (err) {
+        if (!ignore) {
+          setLoadError(err?.message || "Failed to load saved images.");
+        }
+      }
+    };
+
+    loadImages();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const handleSavePending = async () => {
+    if (!pendingImage?.src || saving) return;
+    try {
+      setSaving(true);
+      setError("");
+      await apiPost("/images/save", {
+        image_url: pendingImage.src,
+        meta: pendingImage.meta || {},
+        source: "nano",
+      });
+      setGeneratedImages((prev) => {
+        const next = prev.filter((img) => img.src !== pendingImage.src);
+        return [
+          {
+            id: `saved-${Date.now()}-${Math.random()}`,
+            src: pendingImage.src,
+            title: pendingImage.title || "Nano Banana",
+            subtitle: pendingImage.subtitle || "",
+          },
+          ...next,
+        ];
+      });
+      setPendingImage(null);
+    } catch (err) {
+      setError(err?.message || "Failed to save image to gallery.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-[#F5F7FB]">
       <MainHeader />
@@ -118,23 +207,17 @@ export default function NanoBananaPage() {
 
         <div className="flex-1">
           <div className="px-8 py-7">
-            {/* Hero */}
             <h1 className="text-[38px] leading-[42px] font-bold text-[#111827]">
               Welcome to Image Generation with Nano Banana
             </h1>
             <p className="mt-3 max-w-[980px] text-[14px] font-semibold leading-[22px] text-[#6B7280]">
-              We are excited to introduce you to Nano Banana, our state-of-the-art image generation
-              model. Whether you are looking to visualize a brand new concept, edit an existing
-              image, or experiment with complex artistic styles, Nano Banana offers a high-fidelity,
-              intuitive experience.
+              Generate images based on a prompt. This demo uses the same AI backend as the blog flow.
             </p>
 
-            {/* Generate Card */}
             <div className="mt-6 w-full rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm">
               <div className="px-7 py-6 flex items-start justify-between gap-6">
                 <div className="flex items-start gap-4">
-                  {/* ✅ use imported icon */}
-                  <div className="w-10 h-10 rounded-[10px]  flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center">
                     <img
                       src={GenerateImageIcon}
                       alt=""
@@ -172,7 +255,6 @@ export default function NanoBananaPage() {
               </div>
 
               <div className="px-7 pb-7">
-                {/* prompt */}
                 <div>
                   <div className="text-[13px] font-medium text-[#111827]">
                     Image Prompt <span className="text-[#DC2626]">*</span>
@@ -186,7 +268,6 @@ export default function NanoBananaPage() {
                   />
                 </div>
 
-                {/* Aspect Ratio */}
                 <div className="mt-6">
                   <div className="text-[13px] font-medium text-[#111827]">
                     Aspect Ratio <span className="text-[#DC2626]">*</span>
@@ -214,10 +295,9 @@ export default function NanoBananaPage() {
                   </div>
                 </div>
 
-                {/* Image Quantity + Primary color row */}
                 <div className="mt-6 flex items-end justify-between gap-6 flex-wrap">
                   <div className="min-w-[320px]">
-                    <div className="text-[13px] font-medium text-[#111827]">Image Quantity</div>
+                    <div className="text-[13px] font-medium text-[#111827]">Image Quality</div>
                     <select
                       value={quality}
                       onChange={(e) => setQuality(e.target.value)}
@@ -228,7 +308,6 @@ export default function NanoBananaPage() {
                     </select>
                   </div>
 
-                  {/* ✅ Anchor wrapper so picker opens “near widget” */}
                   <div ref={colorAnchorRef} className="flex items-end gap-4 relative">
                     <div>
                       <div className="text-[13px] font-medium text-[#111827]">Primary color</div>
@@ -247,7 +326,6 @@ export default function NanoBananaPage() {
                         Customize Color
                       </button>
 
-                      {/* ✅ SAME native input, just not "hidden" (some browsers block click on display:none) */}
                       <input
                         ref={colorInputRef}
                         type="color"
@@ -266,69 +344,146 @@ export default function NanoBananaPage() {
                   </div>
                 </div>
 
-                {/* Reference previews + buttons */}
-                <div className="mt-7 flex items-center justify-between gap-4 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    {referencePreviews.slice(0, 4).map((p) => (
-                      <img
-                        key={p.url}
-                        src={p.url}
-                        alt={p.name}
-                        className="w-10 h-10 rounded-[10px] object-cover border border-[#E5E7EB]"
+                <div className="mt-7">
+                  <div className="text-[13px] font-medium text-[#111827]">Reference Image</div>
+
+                  <div className="mt-3 flex items-center gap-4">
+                    <div className="flex-1 min-h-[64px] rounded-[12px] border border-[#E5E7EB] bg-[#F3F4F6] px-4 py-3 flex items-center">
+                      <div className="flex items-center gap-3">
+                        {referencePreviews.length ? (
+                          referencePreviews.slice(0, 6).map((p, idx) => (
+                            <div
+                              key={p.url}
+                              className="relative w-[40px] h-[40px] rounded-[10px] overflow-hidden border border-[#E5E7EB] bg-white"
+                            >
+                              <img
+                                src={p.url}
+                                alt={p.name}
+                                className="w-full h-full object-cover"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeReferenceAt(idx)}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#111827] hover:bg-[#F3F4F6]"
+                                aria-label="Remove reference image"
+                              >
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                                  <path d="M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                  <path d="M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <span className="text-[12px] text-[#6B7280]">
+                            Upload a reference image (optional)
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="h-[38px] px-5 rounded-[999px] bg-white border border-[#D1D5DB] text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
+                      >
+                        Upload Reference Image
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={onUploadReference}
+                        className="hidden"
                       />
-                    ))}
+
+                      <button
+                        type="button"
+                        onClick={onGenerate}
+                        disabled={loading}
+                        className="h-[38px] px-6 rounded-[999px] bg-[#4443E4] text-white text-[13px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {loading ? "Generating..." : "Generate Image"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {error ? (
+                  <div className="mt-3 text-[12px] text-[#DC2626] text-right">{error}</div>
+                ) : null}
+              </div>
+            </div>
+
+            {pendingImage ? (
+              <div className="mt-8 w-full rounded-[14px] bg-white border border-[#E5E7EB] shadow-sm">
+                <div className="px-7 py-6">
+                  <div className="text-[18px] font-semibold text-[#111827]">
+                    Image Generation is Completed
+                  </div>
+                  <div className="mt-2 text-[13px] text-[#6B7280]">
+                    Review the image below. You can regenerate with a better prompt or save it to the gallery.
                   </div>
 
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="h-[44px] px-6 rounded-[999px] bg-white border border-[#D1D5DB] text-[14px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
-                    >
-                      Upload Reference Image
-                    </button>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={onUploadReference}
-                      className="hidden"
-                    />
+                  <div className="mt-5 max-w-[360px]">
+                    <NanoBananaTemplateCard image={pendingImage} />
+                  </div>
 
+                  <div className="mt-5 flex items-center justify-end gap-3">
                     <button
                       type="button"
-                      onClick={onGenerate}
-                      className="h-[44px] px-7 rounded-[999px] bg-[#4443E4] text-white text-[14px] font-medium hover:opacity-95"
+                      onClick={() => setPendingImage(null)}
+                      className="h-[40px] px-6 rounded-[999px] bg-white border border-[#D1D5DB] text-[13px] font-medium text-[#111827] hover:bg-[#F9FAFB]"
                     >
-                      Generate Image
+                      Generate another Image
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSavePending}
+                      disabled={saving}
+                      className="h-[40px] px-6 rounded-[999px] bg-[#4443E4] text-white text-[13px] font-medium hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {saving ? "Saving..." : "Done & Save Gallery"}
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : null}
 
-            {/* Previous generated Images */}
             <div className="mt-10">
               <h2 className="text-[22px] font-semibold text-[#111827]">
                 Previous generated Images
               </h2>
 
               <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {previousImages.map((img) => (
-                  <NanoBananaImageCard key={img.id} image={img} />
-                ))}
+                {generatedImages.length ? (
+                  generatedImages.slice(0, 3).map((img) => (
+                    <NanoBananaTemplateCard key={img.id} image={img} />
+                  ))
+                ) : (
+                  <div className="text-[13px] text-[#6B7280]">
+                    No images generated yet.
+                  </div>
+                )}
               </div>
 
-              <div className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  className="text-[14px] font-medium text-[#2563EB] hover:underline"
-                  onClick={() => alert("TODO: Show All")}
-                >
-                  Show All
-                </button>
-              </div>
+              {loadError ? (
+                <div className="mt-3 text-[12px] text-[#DC2626]">{loadError}</div>
+              ) : null}
+
+              {generatedImages.length ? (
+                <div className="mt-6 text-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/gallery")}
+                    className="text-[13px] font-semibold text-[#4443E4] hover:underline"
+                  >
+                    Show All
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             <div className="h-10" />
