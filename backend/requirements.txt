@@ -17,3 +17,4 @@ pillow==10.*
 argon2-cffi==23.1.0
 firebase-admin==6.5.0
 google-cloud-firestore==2.14.0
+httpx>=0.28,<1.0
