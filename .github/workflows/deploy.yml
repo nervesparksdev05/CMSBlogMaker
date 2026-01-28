@@ -48,7 +48,7 @@ jobs:
                     pm2 delete cms-blog-maker-backend 2>/dev/null || true
                     # Start with explicit venv Python interpreter
                     cd $BACKEND_DIR
-                    pm2 start api.py --name cms-blog-maker-backend --interpreter ./venv/bin/python
+                    pm2 start main.py --name cms-blog-maker-backend --interpreter ./venv/bin/python
                     pm2 save
                     # Restart the process to ensure it uses the venv Python
                     echo "=== Done ==="
