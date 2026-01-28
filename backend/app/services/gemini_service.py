@@ -1,26 +1,21 @@
 from typing import List
 from textwrap import dedent
 import logging
+import json
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from pydantic import BaseModel, Field, create_model
 
 from core.config import settings
 from app.models.schemas import AI_OPTIONS_COUNT
 
-# Initialize client lazily to avoid import errors if API key is missing
-_client = None
 
-def _get_client():
-    global _client
-    if _client is None:
-        if not settings.GEMINI_API_KEY:
-            raise RuntimeError("GEMINI_API_KEY is not set.")
-        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
-    return _client
-
-client = None  # Will be initialized on first use via _get_client()
+def _get_model() -> "genai.GenerativeModel":
+    if not settings.GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not set.")
+    genai.configure(api_key=settings.GEMINI_API_KEY)
+    model_name = settings.GEMINI_TEXT_MODEL or "gemini-1.5-flash"
+    return genai.GenerativeModel(model_name)
 
 # ---------- schemas for structured outputs ----------
 class _StringOptions(BaseModel):
@@ -41,6 +36,19 @@ def _sys(tone: str, creativity: str) -> str:
         "Return ONLY valid JSON according to the schema.\n"
     )
 
+
+def _call_json_model(prompt: str) -> dict:
+    """Call Gemini and parse JSON response from text."""
+    model = _get_model()
+    resp = model.generate_content(prompt)
+    text = (resp.text or "").strip()
+    try:
+        return json.loads(text)
+    except Exception as e:
+        logging.error("Failed to parse JSON from Gemini response: %s\nRaw: %r", e, text)
+        raise
+
+
 async def gen_topic_ideas(payload: dict) -> List[str]:
     prompt = dedent(f"""
     {_sys(payload['tone'], payload['creativity'])}
@@ -51,20 +59,18 @@ async def gen_topic_ideas(payload: dict) -> List[str]:
 
     Generate exactly {AI_OPTIONS_COUNT} blog topic ideas.
     Each idea must be a single sentence, clear and specific.
+
+    Return a JSON object: {{"options": [ ... ]}} with exactly {AI_OPTIONS_COUNT} strings.
     """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=settings.GEMINI_TEXT_MODEL,
-        contents=[prompt],
-        config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-    )
-    return resp.parsed.options
+    data = _call_json_model(prompt)
+    options = data.get("options") or []
+    if not isinstance(options, list):
+        raise ValueError("Gemini topic ideas response missing 'options' list")
+    return [str(o) for o in options][:AI_OPTIONS_COUNT]
 
 async def gen_titles(payload: dict) -> List[str]:
     try:
-        client = _get_client()
-        
         prompt = dedent(f"""
         {_sys(payload['tone'], payload['creativity'])}
         Focus/Niche: {payload['focus_or_niche']}
@@ -74,22 +80,21 @@ async def gen_titles(payload: dict) -> List[str]:
 
         Generate exactly {AI_OPTIONS_COUNT} SEO-friendly blog titles.
         No quotes, no emojis.
+
+        Return a JSON object: {{"options": [ ... ]}} with exactly {AI_OPTIONS_COUNT} strings.
         """).lstrip("\n")
 
-        resp = client.models.generate_content(
-            model=settings.GEMINI_TEXT_MODEL,
-            contents=[prompt],
-            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-        )
-        return resp.parsed.options
+        data = _call_json_model(prompt)
+        options = data.get("options") or []
+        if not isinstance(options, list):
+            raise ValueError("Gemini titles response missing 'options' list")
+        return [str(o) for o in options][:AI_OPTIONS_COUNT]
     except Exception as e:
         logging.error(f"Error generating titles: {e}")
         raise
 
 async def gen_intros(payload: dict) -> List[str]:
     try:
-        client = _get_client()
-        
         prompt = dedent(f"""
         {_sys(payload['tone'], payload['creativity'])}
         Focus/Niche: {payload['focus_or_niche']}
@@ -100,14 +105,15 @@ async def gen_intros(payload: dict) -> List[str]:
 
         Generate exactly {AI_OPTIONS_COUNT} intro paragraphs in Markdown.
         Each intro: 80-140 words.
+
+        Return a JSON object: {{"options": [ ... ]}} with exactly {AI_OPTIONS_COUNT} strings.
         """).lstrip("\n")
 
-        resp = client.models.generate_content(
-            model=settings.GEMINI_TEXT_MODEL,
-            contents=[prompt],
-            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-        )
-        return resp.parsed.options
+        data = _call_json_model(prompt)
+        options = data.get("options") or []
+        if not isinstance(options, list):
+            raise ValueError("Gemini intros response missing 'options' list")
+        return [str(o) for o in options][:AI_OPTIONS_COUNT]
     except Exception as e:
         logging.error(f"Error generating intros: {e}")
         raise
@@ -120,8 +126,6 @@ class _OutlineOptions(BaseModel):
 
 async def gen_outlines(payload: dict):
     try:
-        client = _get_client()
-        
         prompt = dedent(f"""
         {_sys(payload['tone'], payload['creativity'])}
         Focus/Niche: {payload['focus_or_niche']}
@@ -134,22 +138,27 @@ async def gen_outlines(payload: dict):
         Generate exactly {AI_OPTIONS_COUNT} outline variants.
         Each outline should be 6-10 headings.
         Headings must be short and not numbered.
+
+        Return a JSON object: {{"options": [{{"outline": [..] }}, ...]}}.
         """).lstrip("\n")
 
-        resp = client.models.generate_content(
-            model=settings.GEMINI_TEXT_MODEL,
-            contents=[prompt],
-            config={"response_mime_type": "application/json", "response_schema": _OutlineOptions},
-        )
-        return [o.model_dump() for o in resp.parsed.options]
+        data = _call_json_model(prompt)
+        options = data.get("options") or []
+        if not isinstance(options, list):
+            raise ValueError("Gemini outlines response missing 'options' list")
+        normalized = []
+        for o in options[:AI_OPTIONS_COUNT]:
+            outline = (o or {}).get("outline") if isinstance(o, dict) else None
+            if not isinstance(outline, list):
+                continue
+            normalized.append({"outline": [str(h) for h in outline]})
+        return normalized
     except Exception as e:
         logging.error(f"Error generating outlines: {e}")
         raise
 
 async def gen_image_prompts(payload: dict) -> List[str]:
     try:
-        client = _get_client()
-        
         prompt = dedent(f"""
         {_sys(payload['tone'], payload['creativity'])}
         Focus/Niche: {payload['focus_or_niche']}
@@ -159,14 +168,15 @@ async def gen_image_prompts(payload: dict) -> List[str]:
 
         Generate exactly {AI_OPTIONS_COUNT} blog cover image prompts.
         Avoid text/logos/watermarks.
+
+        Return a JSON object: {{"options": [ ... ]}} with exactly {AI_OPTIONS_COUNT} strings.
         """).lstrip("\n")
 
-        resp = client.models.generate_content(
-            model=settings.GEMINI_TEXT_MODEL,
-            contents=[prompt],
-            config={"response_mime_type": "application/json", "response_schema": _StringOptions},
-        )
-        return resp.parsed.options
+        data = _call_json_model(prompt)
+        options = data.get("options") or []
+        if not isinstance(options, list):
+            raise ValueError("Gemini image prompts response missing 'options' list")
+        return [str(o) for o in options][:AI_OPTIONS_COUNT]
     except Exception as e:
         logging.error(f"Error generating image prompts: {e}")
         raise
@@ -197,10 +207,9 @@ async def gen_final_blog_markdown(payload: dict) -> str:
         Return ONLY the Markdown text.
         """).lstrip("\n")
 
-    client = _get_client()
-    resp = client.models.generate_content(
-        model=settings.GEMINI_TEXT_MODEL,
-        contents=[prompt],
-        config=types.GenerateContentConfig(temperature=0.7),
+    model = _get_model()
+    resp = model.generate_content(
+        prompt,
+        generation_config={"temperature": 0.7},
     )
     return (resp.text or "").strip()
