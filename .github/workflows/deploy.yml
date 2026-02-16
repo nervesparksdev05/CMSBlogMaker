@@ -1,4 +1,4 @@
-name: Deploy Demo Discovery Agent
+name: Deploy CMS Blog Maker
 
 on:
     push:
@@ -11,7 +11,7 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - name: SSH and deploy 
+            - name: SSH and deploy
               uses: appleboy/ssh-action@v1.0.3
               with:
                 host: ${{ secrets.SSH_HOST }}
@@ -27,32 +27,24 @@ jobs:
                     APP_DIR="/home/nervesparksdev03/all-agents/CMSBlogMaker"
                     BACKEND_DIR="$APP_DIR/backend"
 
-                    echo "=== Pulling latest code ==="
+                    echo "=== 1. Updating code (fetch + reset to remote) ==="
                     cd $APP_DIR
-                    git pull origin main
+                    git fetch origin main
+                    git reset --hard origin/main
+                    git clean -fd
 
-                    echo "=== Updating dependencies ==="
+                    echo "=== 2. Updating backend (conda env cms) ==="
                     cd $BACKEND_DIR
-                    if [ ! -d "venv" ] || [ ! -f "venv/bin/pip" ]; then
-                        echo "=== Creating virtual environment ==="
-                        if ! python3 -m venv venv 2>/dev/null; then
-                            echo "venv module not available, installing python3-venv..."
-                            sudo apt-get update -qq && sudo apt-get install -y python3-venv
-                            python3 -m venv venv
-                        fi
+                    if [ -f "$HOME/miniconda3/envs/cms/bin/pip" ]; then
+                      $HOME/miniconda3/envs/cms/bin/pip install -r requirements.txt --quiet
+                    else
+                      $HOME/anaconda3/envs/cms/bin/pip install -r requirements.txt --quiet
                     fi
-                    venv/bin/pip install --upgrade pip
-                    venv/bin/pip install -r requirements.txt --upgrade
-                    
-                    echo "=== Restarting cms-blog-maker-backend ==="
-                    # Stop and delete existing process to ensure it uses the venv Python
-                    pm2 delete cms-backend 2>/dev/null || true
-                    # Start with explicit venv Python interpreter
-                    cd $BACKEND_DIR
-                    pm2 start main.py --name cms-backend --interpreter ./venv/bin/python
-                    pm2 save
-                    # Restart the process to ensure it uses the venv Python
+
+                    echo "=== 3. Restarting services ==="
+                    sudo systemctl restart cms-blog-maker-backend
+
                     echo "=== Done ==="
-                    pm2 status
+                    sudo systemctl status cms-blog-maker-backend --no-pager
 
 
