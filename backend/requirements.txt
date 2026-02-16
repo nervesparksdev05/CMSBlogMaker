@@ -1,45 +1,44 @@
 # =========================
 # Core API
 # =========================
-fastapi==0.115.0
-uvicorn==0.30.6
+fastapi
+uvicorn
 
 # =========================
 # Validation / Settings
 # =========================
-pydantic==2.12.5
-pydantic-settings==2.12.0
-email-validator==2.1.1
-python-dotenv==1.0.1
+pydantic
+pydantic-settings
+email-validator
+python-dotenv
 
 # =========================
 # Auth / Security
 # =========================
-python-jose==3.3.0
-passlib==1.7.4
-argon2-cffi==23.1.0
+python-jose
+passlib
+argon2-cffi
 
 # =========================
 # File / Content
 # =========================
-python-multipart==0.0.9
-markdown==3.7
-pillow==10.4.0
-
+python-multipart
+markdown
+pillow
 # =========================
 # AI SDKs
 # =========================
-google-generativeai==0.8.5
-openai==2.16.0
+google-generativeai
+openai
 
 # =========================
 # Google Cloud
 # =========================
-google-cloud-storage==2.19.0
-google-cloud-firestore==2.14.0
-firebase-admin==6.5.0
+google-cloud-storage
+google-cloud-firestore
+firebase-admin
 
 # =========================
 # Networking
 # =========================
-httpx==0.28.1
+httpx
