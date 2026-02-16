@@ -42,9 +42,9 @@ jobs:
                     fi
 
                     echo "=== 3. Restarting services ==="
-                    sudo systemctl restart cms-blog-maker-backend
+                    sudo systemctl restart cms-agent-backend
 
                     echo "=== Done ==="
-                    sudo systemctl status cms-blog-maker-backend --no-pager
+                    sudo systemctl status cms-agent-backend --no-pager
 
 
