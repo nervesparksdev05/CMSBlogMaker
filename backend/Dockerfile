@@ -17,7 +17,6 @@ RUN mkdir -p uploads
 
 EXPOSE 8000
 
-# Env: use --env-file .env when running, or pass -e / compose env_file
-# Required: JWT_SECRET, ADMIN_EMAIL; GEMINI_API_KEY or OPENAI_API_KEY for AI
-# Optional: FIREBASE_CREDENTIALS_PATH, GOOGLE_APPLICATION_CREDENTIALS (mount JSON in run)
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Cloud Run sets PORT; use it so the container listens on the expected port
+ENV PORT=8000
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

@@ -36,22 +36,28 @@ async def get_current_user(authorization: str = Header(default="")):
     # First, try to decode as CMS JWT token (for backward compatibility)
     payload = decode_token(token, settings.JWT_SECRET)
     firebase_uid = None
-    
-    # If that fails, try to verify as Firebase token
+
+    # Second, try to decode as main dashboard backend JWT
+    if not payload and settings.MAIN_DASHBOARD_JWT_SECRET:
+        payload = decode_token(token, settings.MAIN_DASHBOARD_JWT_SECRET)
+        if payload:
+            logger.debug(f"Main dashboard JWT verified for user: {payload.get('sub')}")
+
+    # Third, try to verify as Firebase ID token
     if not payload:
         if not FIREBASE_AVAILABLE:
             logger.error("Firebase Admin SDK not available")
             raise HTTPException(
-                status_code=401, 
+                status_code=401,
                 detail="Firebase Admin SDK not available. Please install firebase-admin and configure Firebase credentials."
             )
-        
+
         firebase_payload = verify_firebase_token(token)
         if firebase_payload:
             firebase_uid = firebase_payload.get("uid")
             email = firebase_payload.get("email")
             name = firebase_payload.get("name") or (email.split("@")[0] if email else "")
-            
+
             # Convert Firebase token to payload format
             payload = {
                 "sub": firebase_uid,  # Firebase UID

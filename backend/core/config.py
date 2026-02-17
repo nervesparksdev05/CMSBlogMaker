@@ -17,6 +17,10 @@ class Settings:
     # JWT Settings (for backward compatibility with legacy tokens)
     JWT_SECRET: str = os.getenv("JWT_SECRET", "")
     JWT_EXPIRES_MINUTES: int = int(os.getenv("JWT_EXPIRES_MINUTES", "60"))
+
+    # Main Dashboard JWT Settings (for verifying tokens issued by main dashboard)
+    MAIN_DASHBOARD_JWT_SECRET: str = os.getenv("MAIN_DASHBOARD_JWT_SECRET", "")
+    MAIN_DASHBOARD_JWT_ALGORITHM: str = os.getenv("MAIN_DASHBOARD_JWT_ALGORITHM", "HS256")
     
     # Admin Settings
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
