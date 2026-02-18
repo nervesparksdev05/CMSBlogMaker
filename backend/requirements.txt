@@ -29,6 +29,7 @@ pillow
 # AI SDKs
 # =========================
 google-generativeai
+google-genai
 openai
 
 # =========================

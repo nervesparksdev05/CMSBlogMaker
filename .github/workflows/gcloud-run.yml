@@ -42,10 +42,8 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
 
-      - name: Create frontend .env from secret
-        run: |
-          printf '%s' "$CMS_ENV" > backend/.env
-          echo "CMS_ENV=$CMS_ENV" >> backend/.env
+      - name: Create backend .env from secret
+        run: printf '%s' "$CMS_ENV" > backend/.env
         env:
           CMS_ENV: ${{ secrets.CMS_ENV }}
 
@@ -58,12 +56,13 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$SERVICE_NAME:${{ github.sha }}
-            gcloud run deploy $SERVICE_NAME \
-              --image $IMAGE \
-              --region $REGION \
-              --platform managed \
-              --port 8000 \
-              --memory 4Gi \
-              --cpu 4 \
-              --timeout 600 \
-              --allow-unauthenticated
+          gcloud run deploy $SERVICE_NAME \
+            --image $IMAGE \
+            --region $REGION \
+            --platform managed \
+            --port 8000 \
+            --memory 4Gi \
+            --cpu 4 \
+            --timeout 600 \
+            --allow-unauthenticated \
+            --env-vars-file backend/.env
