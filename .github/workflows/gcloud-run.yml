@@ -47,6 +47,11 @@ jobs:
         env:
           CMS_ENV: ${{ secrets.CMS_ENV }}
 
+      - name: Write Firebase credentials file
+        run: printf '%s' "$FIREBASE_CREDENTIALS" > backend/firebase-credentials.json
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+
       - name: Build and Push
         run: |
           IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/$SERVICE_NAME:${{ github.sha }}
@@ -61,8 +66,11 @@ jobs:
             --region $REGION \
             --platform managed \
             --port 8000 \
-            --memory 4Gi \
-            --cpu 4 \
+            --memory 2Gi \
+            --cpu 2 \
+            --min-instances 1 \
+            --max-instances 5 \
             --timeout 600 \
             --allow-unauthenticated \
-            --env-vars-file backend/.env
+            --env-vars-file backend/.env \
+            --update-env-vars FIREBASE_CREDENTIALS_PATH=/app/firebase-credentials.json
