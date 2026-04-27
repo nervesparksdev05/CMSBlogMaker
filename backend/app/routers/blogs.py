@@ -3,6 +3,15 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from motor.motor_asyncio import AsyncIOMotorClient
+
+# 1. Setup MongoDB Connection
+# It grabs the URL from your .env file, or uses a fallback if missing
+MONGO_URL = os.getenv("MONGO_PRODUCTION_URL")
+client = AsyncIOMotorClient(MONGO_URL)
+
+mongo_db = client["cms_blog"]
+mongo_blogs = mongo_db["blogs"]
 
 from app.models.firestore_db import (
     create_blog, get_blog_by_id, update_blog, delete_blog,
@@ -436,3 +445,60 @@ async def change_to_draft(blog_id: str, user=Depends(get_current_user)):
     }
     update_blog(blog_id, updates)
     return {"ok": True, "status": "saved"}
+
+@router.get("/public/blogs", response_model=dict)
+async def list_public_blogs_from_mongo(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Fetch published blogs directly from Production MongoDB."""
+    skip = (page - 1) * limit
+    
+    # Check how many published blogs exist
+    query = {"status": "published"}
+    total_count = await mongo_blogs.count_documents(query)
+
+    # If Sir said "if there is no blog then add it", we do that here!
+    if total_count == 0:
+        print("MongoDB is empty! Seeding a default blog...")
+        default_blog = {
+            "status": "published",
+            "owner_name": "Admin Team",
+            "published_at": datetime.utcnow(),
+            "meta": {
+                "title": "Welcome to thehummm New xSparks AI Platform",
+                "focus_or_niche": "Technology",
+            },
+            "final_blog": {
+                "render": {
+                    "title": "Welcome to humm the New xSparks AI Platform",
+                    "intro_md": "We have successfully migrated our CMS infrastructure to a high-performance MongoDB cluster. Stay tuned for incredible AI-generated content coming your way!",
+                    "cover_image_url": "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?q=80&w=1200"
+                }
+            }
+        }
+        await mongo_blogs.insert_one(default_blog)
+        # Recalculate count after inserting
+        total_count = 1
+
+    # Fetch the actual blogs from Mongo, sorted by newest first
+    cursor = mongo_blogs.find(query).sort("published_at", -1).skip(skip).limit(limit)
+    blogs_from_db = await cursor.to_list(length=limit)
+    
+    # Format them exactly how your React frontend expects them
+    items = []
+    for b in blogs_from_db:
+        render = b.get("final_blog", {}).get("render", {})
+        meta = b.get("meta", {})
+        
+        items.append({
+            "id": str(b.get("_id")), # MongoDB uses _id instead of id
+            "title": render.get("title", "") or meta.get("title", ""),
+            "cover_image_url": render.get("cover_image_url", ""),
+            "intro": render.get("intro_md", ""),
+            "author": b.get("owner_name", "Admin"),
+            "category": meta.get("focus_or_niche", "Technology"),
+            "published_at": b.get("published_at"),
+        })
+
+    return {"items": items, "page": page, "limit": limit, "total": total_count}
