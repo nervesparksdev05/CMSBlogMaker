@@ -30,8 +30,7 @@ def initialize_firebase():
                 cred = credentials.Certificate(str(default_creds))
                 firebase_admin.initialize_app(cred)
             else:
-                # Try to initialize with default credentials (for Google Cloud environments)
-                # Note: This will use GOOGLE_APPLICATION_CREDENTIALS if set, but we prefer FIREBASE_CREDENTIALS_PATH
+               
                 try:
                     firebase_admin.initialize_app()
                 except Exception as e:
@@ -92,4 +91,5 @@ def get_user_by_uid(uid: str) -> Optional[Dict[str, Any]]:
         }
     except Exception:
         return None
+
 

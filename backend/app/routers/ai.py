@@ -96,7 +96,11 @@ async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user
     try:
         data = payload.model_dump()
         save_to_gallery = data.pop("save_to_gallery", True)
+        
+        # 1. Generate the image
         result = await generate_cover_image(data)
+        
+        #  Save the image to the database!
         if save_to_gallery:
             create_image(
                 {
@@ -108,14 +112,10 @@ async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user
                     "created_at": datetime.utcnow(),
                 }
             )
+            
         return result
     except Exception as e:
-        error_detail = str(e)
-        # Log the full error for debugging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Image generation failed: {error_detail}", exc_info=True)
-        raise HTTPException(status_code=400, detail=error_detail)
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/blog-generate", response_model=FinalBlog)
 async def blog_generate(payload: GenerateBlogIn):
@@ -126,6 +126,7 @@ async def blog_generate(payload: GenerateBlogIn):
       - html (left)
       - render (structured, optional for UI)
     """
+
     try:
         markdown = await gen_final_blog_markdown(payload.model_dump())
         markdown = normalize_markdown(markdown)
