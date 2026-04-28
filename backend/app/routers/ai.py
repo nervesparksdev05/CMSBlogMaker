@@ -115,7 +115,12 @@ async def image_generate(payload: ImageGenerateIn, user=Depends(get_current_user
             
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        error_detail = str(e)
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Image generation failed: {error_detail}", exc_info=True)
+        
+        raise HTTPException(status_code=400, detail=error_detail)
 
 @router.post("/blog-generate", response_model=FinalBlog)
 async def blog_generate(payload: GenerateBlogIn):

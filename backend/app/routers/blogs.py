@@ -458,7 +458,7 @@ async def list_public_blogs_from_mongo(
     query = {"status": "published"}
     total_count = await mongo_blogs.count_documents(query)
 
-    # If Sir said "if there is no blog then add it", we do that here!
+    
     if total_count == 0:
         print("MongoDB is empty! Seeding a default blog...")
         default_blog = {
