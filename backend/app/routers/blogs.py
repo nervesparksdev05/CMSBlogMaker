@@ -4,6 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 
+
 from app.models.firestore_db import (
     create_blog, get_blog_by_id, update_blog, delete_blog,
     query_blogs, count_blogs, create_image
@@ -436,3 +437,35 @@ async def change_to_draft(blog_id: str, user=Depends(get_current_user)):
     }
     update_blog(blog_id, updates)
     return {"ok": True, "status": "saved"}
+
+@router.get("/public/blogs", response_model=dict)
+async def list_public_blogs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1, le=50),
+):
+    """Fetch published blogs directly from Firestore."""
+    skip = (page - 1) * limit
+    q = {"status": "published"}
+    
+    total_count = count_blogs(q)
+    
+    # Fetch the actual blogs from Firestore, sorted by newest first
+    blogs_from_db = query_blogs(q, order_by="published_at", order_direction="DESCENDING", skip=skip, limit=limit)
+    
+    # Format them exactly how your React frontend expects them
+    items = []
+    for b in blogs_from_db:
+        render = b.get("final_blog", {}).get("render", {})
+        meta = b.get("meta", {})
+        
+        items.append({
+            "id": str(b.get("id")), # Firestore uses standard id
+            "title": render.get("title", "") or meta.get("title", ""),
+            "cover_image_url": render.get("cover_image_url", ""),
+            "intro": render.get("intro_md", ""),
+            "author": b.get("owner_name", "Admin"),
+            "category": meta.get("focus_or_niche", "Technology"),
+            "published_at": b.get("published_at"),
+        })
+
+    return {"items": items, "page": page, "limit": limit, "total": total_count}

@@ -42,7 +42,6 @@ async def delete_image(image_id: str, user=Depends(get_current_user)):
     
     doc_ref.delete()
     return {"ok": True, "image_id": image_id}
-
 @router.get("/images", response_model=dict)
 async def list_images(
     user=Depends(get_current_user),
@@ -50,37 +49,42 @@ async def list_images(
     limit: int = Query(24, ge=1, le=100),
     source: str | None = Query(None),
 ):
-    skip = (page - 1) * limit
-    q = {"owner_id": user["id"]}
-    if source:
-        if source == "ai":
-            q["$or"] = [
-                {"source": {"$in": ["nano", "blog"]}},
-                {"source": {"$exists": False}},
-                {"source": None},
-            ]
-        elif source == "nano":
-            q["$or"] = [
-                {"source": "nano"},
-                {"source": {"$exists": False}},
-                {"source": None},
-            ]
-        else:
-            q["source"] = source
-    
-    total = count_images(q)
-    images = query_images(q, order_by="created_at", order_direction="DESCENDING", skip=skip, limit=limit)
-    
-    items = []
-    for img in images:
-        items.append(
-            {
-                "id": img.get("id", ""),
-                "image_url": img.get("image_url", ""),
-                "meta": img.get("meta", {}),
-                "source": img.get("source", None),
-                "created_at": img.get("created_at"),
-            }
-        )
+    try:
+        skip = (page - 1) * limit
+        q = {"owner_id": user["id"]}
+        if source:
+            if source == "ai":
+                q["$or"] = [
+                    {"source": {"$in": ["nano", "blog"]}},
+                    {"source": {"$exists": False}},
+                    {"source": None},
+                ]
+            elif source == "nano":
+                q["$or"] = [
+                    {"source": "nano"},
+                    {"source": {"$exists": False}},
+                    {"source": None},
+                ]
+            else:
+                q["source"] = source
+        
+        #   Ask the database for the actual images!
+        total = count_images(q)
+        images = query_images(q, order_by="created_at", order_direction="DESCENDING", skip=skip, limit=limit)
+        
+        items = []
+        for img in images:
+            items.append(
+                {
+                    "id": img.get("id", ""),
+                    "image_url": img.get("image_url", ""),
+                    "meta": img.get("meta", {}),
+                    "source": img.get("source", None),
+                    "created_at": img.get("created_at"),
+                }
+            )
 
-    return {"items": items, "page": page, "limit": limit, "total": total}
+        return {"items": items, "page": page, "limit": limit, "total": total}
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

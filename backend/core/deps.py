@@ -2,6 +2,8 @@ from fastapi import Header, HTTPException, Depends
 import os
 import logging
 
+from fastapi.security import OAuth2PasswordBearer
+
 from core.config import settings
 from core.verify import decode_token
 from utils.firebase_auth import verify_firebase_token, initialize_firebase
@@ -33,11 +35,11 @@ async def get_current_user(authorization: str = Header(default="")):
         logger.warning("Empty token in authorization header")
         raise HTTPException(status_code=401, detail="Empty token")
     
-    # First, try to decode as CMS JWT token (for backward compatibility)
+    
     payload = decode_token(token, settings.JWT_SECRET)
     firebase_uid = None
     
-    # If that fails, try to verify as Firebase token
+    
     if not payload:
         if not FIREBASE_AVAILABLE:
             logger.error("Firebase Admin SDK not available")
@@ -54,7 +56,7 @@ async def get_current_user(authorization: str = Header(default="")):
             
             # Convert Firebase token to payload format
             payload = {
-                "sub": firebase_uid,  # Firebase UID
+                "sub": firebase_uid, 
                 "email": email,
                 "name": name,
             }
@@ -76,7 +78,7 @@ async def get_current_user(authorization: str = Header(default="")):
         logger.warning("Token missing user ID (firebase_uid)")
         raise HTTPException(status_code=401, detail="Invalid token: missing user ID")
     
-    # Get user from Firestore (same database as main dashboard)
+   
     try:
         db = get_db()
         users_collection = db.collection('users')
@@ -114,6 +116,7 @@ async def get_current_user(authorization: str = Header(default="")):
     except Exception as e:
         logger.error(f"Error querying Firestore for user {firebase_uid}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Database error")
+
 
 
 async def require_admin(user=Depends(get_current_user)):
