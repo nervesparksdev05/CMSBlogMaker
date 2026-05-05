@@ -14,9 +14,13 @@ class Settings:
     CORS_ORIGINS: str = os.getenv("CORS_ORIGINS", "")
     PUBLIC_BASE_URL: str = os.getenv("PUBLIC_BASE_URL", "")
     
-    # JWT Settings (for backward compatibility with legacy tokens)
-    JWT_SECRET: str = os.getenv("JWT_SECRET", "")
-    JWT_EXPIRES_MINUTES: int = int(os.getenv("JWT_EXPIRES_MINUTES", "60"))
+    # --- NEW: Auth Gateway Settings ---
+    AUTH_JWKS_URL: str = os.getenv("AUTH_JWKS_URL", "https://auth.nervesparks.com/api/v1/auth/.well-known/jwks.json")
+    JWT_ISSUER: str = os.getenv("JWT_ISSUER", "auth-gateway")
+    JWT_AUDIENCE: str = os.getenv("JWT_AUDIENCE", "auth-gateway-access")
+
+    # ---  NEW: PostgreSQL Database Settings ---
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
     
     # Admin Settings
     ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "")
@@ -31,13 +35,13 @@ class Settings:
     GCS_FOLDER: str = os.getenv("GCS_FOLDER", "")
     GCS_PUBLIC_BASE: str = os.getenv("GCS_PUBLIC_BASE", "https://storage.googleapis.com")
     
-    # Firebase/Firestore Settings
+    # Firebase/Firestore Settings (We will delete this later when Postgres is fully running!)
     FIREBASE_PROJECT_ID: str = os.getenv("FIREBASE_PROJECT_ID", "dashboard-26031")
-    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")  # For Firestore
+    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "")  
     FIRESTORE_DATABASE_ID: str = os.getenv("FIRESTORE_DATABASE_ID", "(default)")
     
     # Google Cloud Storage Settings (separate credentials for GCS bucket)
-    GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")  # For GCS bucket
+    GOOGLE_APPLICATION_CREDENTIALS: str = os.getenv("GOOGLE_APPLICATION_CREDENTIALS", "")  
 
     # OpenAI fallback configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

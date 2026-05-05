@@ -56,47 +56,38 @@ class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserOut
-    admin_data: Optional[AdminDataOut] = None  # ✅ needed for admin login response
+    admin_data: Optional[AdminDataOut] = None  # 
 
 
 # ---------------- BLOG CONTENT (FINAL ONLY) ----------------
-class BlogSection(BaseModel):
-    heading: str
-    body_md: str
-    bullets: List[str] = []
 
-
-class BlogRender(BaseModel):
-    title: str
-    cover_image_url: str = ""
-    intro_md: str = ""
-    sections: List[BlogSection] = []
-    conclusion_md: str = ""
-    references: List[str] = []
-
+class YoutubeBlogIn(BaseModel):
+    youtube_url: str
+    tone: Optional[str] = "Formal"
+    language: Optional[str] = "English"
+    image_count: Optional[int] = 0
 
 class FinalBlog(BaseModel):
     """
-    What preview shows side-by-side:
-    - html (left)
-    - markdown (right)
-    And what we store in Firestore.
+    NEW LEGO BLOCK ARCHITECTURE
+    Instead of raw markdown, we store an array of structured JSON blocks.
+    Example: [{"type": "h1", "content": "Hello"}, {"type": "image_prompt", "description": "..."}]
     """
-    render: BlogRender
-    markdown: str
-    html: str
+    blocks: List[dict]
 
 
 # Metadata that came from your multi-step form (final selected/manual only)
 class BlogMeta(BaseModel):
-    language: Literal["English"] = "English"   # fixed
+    language: Literal["English"] = "English"  
     tone: str
     creativity: str
 
     focus_or_niche: str = ""
     targeted_keyword: str = ""
     targeted_audience: str = ""
-    reference_links: str = ""  # comma separated
+    reference_links: str = "" 
+    
+    youtube_url: str = "" 
 
     selected_idea: str = ""
     title: str = ""
@@ -242,7 +233,6 @@ class ImageOut(BaseModel):
 class GenerateBlogIn(BaseModel):
     """
     Called on 'Generate Blog' button from review page.
-    Produces ONE final blog markdown + html + structured render.
     """
     tone: str
     creativity: str
@@ -250,6 +240,9 @@ class GenerateBlogIn(BaseModel):
     targeted_keyword: str = ""
     targeted_audience: str = ""
     reference_links: str = ""
+    
+    youtube_url: str = "" 
+    youtube_transcript: str = "" 
 
     selected_idea: str
     title: str
@@ -257,7 +250,7 @@ class GenerateBlogIn(BaseModel):
     outline: List[str]
 
     cover_image_url: str = ""
-    primary_color: str = "#4443E4"  # Color code theme for high quality generation
+    primary_color: str = "#4443E4"
 
 
 class OptionsOut(BaseModel):

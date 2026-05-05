@@ -8,7 +8,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from core.config import settings
+from core.database import engine
+from core import models
 from app.routers import auth, ai, blogs, admin, images
+
+# Create the PostgreSQL tables based on our models
+models.Base.metadata.create_all(bind=engine)
 
 # Thread pool configuration
 THREAD_POOL_WORKERS = int(os.getenv("THREAD_POOL_WORKERS", "300"))  # Default to 300 workers
@@ -18,7 +23,6 @@ THREAD_POOL_WORKERS = int(os.getenv("THREAD_POOL_WORKERS", "300"))  # Default to
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager.
-    Firestore connection is initialized on first use via get_db().
     """
     # Startup
     # Thread pool for concurrent users (blocking/sync work run via run_in_executor)
@@ -26,13 +30,13 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     loop.set_default_executor(thread_pool)
     app.state.thread_pool = thread_pool
-    print(f"✅ Thread pool started: max_workers={THREAD_POOL_WORKERS}")
+    print(f"Thread pool started: max_workers={THREAD_POOL_WORKERS}")
     
     yield
     
     # Shutdown
     thread_pool.shutdown(wait=False)
-    print("✅ Thread pool shut down")
+    print("Thread pool shut down")
 
 
 # Create the main API application
